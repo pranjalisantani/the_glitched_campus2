@@ -1,0 +1,12 @@
+﻿timestamp,source_ip,destination_ip,protocol,src_port,dst_port,packet_size_bytes,tcp_flags,threat_flag,incident_notes
+2026-10-23T01:05:12Z,10.14.20.105,10.14.0.1,TCP,49152,443,1420,ACK,NORMAL,Normal collegiate portal traffic
+2026-10-23T01:06:44Z,10.14.20.105,10.14.50.88,TCP,49153,22,64,SYN,SUSPICIOUS,Internal SSH reconnaissance scan
+2026-10-23T01:07:01Z,10.14.20.105,10.14.50.89,TCP,49154,22,64,SYN,SUSPICIOUS,Internal SSH reconnaissance scan
+2026-10-23T01:07:18Z,10.14.20.105,10.14.50.90,TCP,49155,22,64,SYN,SUSPICIOUS,Internal SSH reconnaissance scan
+2026-10-23T01:08:33Z,172.16.8.12,10.14.20.105,UDP,5353,5353,248,NONE,NORMAL,mDNS discovery broadcast
+2026-10-23T01:09:50Z,10.14.20.105,198.51.100.42,TCP,51200,8080,4096,PSH_ACK,CRITICAL,Outbound beaconing to untrusted C2 node
+2026-10-23T01:11:15Z,10.14.20.105,198.51.100.42,TCP,51201,8080,8192,PSH_ACK,CRITICAL,Encrypted payload exfiltration detected
+2026-10-23T01:12:02Z,10.14.0.254,10.14.20.105,ICMP,0,0,84,NONE,WARNING,Gateway rate-limit echo reply
+2026-10-23T01:13:40Z,10.14.20.105,10.14.0.15,TCP,52010,3389,128,SYN,SUSPICIOUS,Lateral movement probe to Lab RDP service
+2026-10-23T01:14:22Z,10.14.20.105,10.14.0.15,TCP,52010,3389,2048,PSH_ACK,CRITICAL,RDP credential spraying sequence observed
+2026-10-23T01:15:00Z,10.14.0.1,10.14.20.105,TCP,443,49152,52,RST,NORMAL,Connection terminated by perimeter firewall

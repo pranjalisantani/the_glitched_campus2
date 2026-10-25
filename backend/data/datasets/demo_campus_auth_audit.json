@@ -1,0 +1,62 @@
+﻿[
+  {
+    "event_id": "EVT-2026-001",
+    "timestamp": "2026-10-23T00:15:30Z",
+    "service": "CAMPUS-RADIUS-AUTH",
+    "account": "student_jdoe",
+    "auth_status": "SUCCESS",
+    "ip_address": "10.14.10.45",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+    "anomaly_score": 0.05,
+    "risk_level": "LOW",
+    "notes": "Legitimate student laboratory login"
+  },
+  {
+    "event_id": "EVT-2026-002",
+    "timestamp": "2026-10-23T00:45:10Z",
+    "service": "CAMPUS-VPN-GATEWAY",
+    "account": "admin_sysops",
+    "auth_status": "FAILED",
+    "ip_address": "203.0.113.19",
+    "user_agent": "Python-urllib/3.10",
+    "anomaly_score": 0.85,
+    "risk_level": "HIGH",
+    "notes": "Automated script attempting VPN access with invalid certificate"
+  },
+  {
+    "event_id": "EVT-2026-003",
+    "timestamp": "2026-10-23T00:46:02Z",
+    "service": "CAMPUS-VPN-GATEWAY",
+    "account": "admin_sysops",
+    "auth_status": "FAILED",
+    "ip_address": "203.0.113.19",
+    "user_agent": "Python-urllib/3.10",
+    "anomaly_score": 0.92,
+    "risk_level": "CRITICAL",
+    "notes": "Repeated failure; account lock trigger tripped"
+  },
+  {
+    "event_id": "EVT-2026-004",
+    "timestamp": "2026-10-23T01:02:18Z",
+    "service": "LIBRARY-TERMINAL-LDAP",
+    "account": "guest_temp204",
+    "auth_status": "SUCCESS",
+    "ip_address": "10.14.80.12",
+    "user_agent": "TerminalBrowser/1.0",
+    "anomaly_score": 0.12,
+    "risk_level": "LOW",
+    "notes": "Guest session initiated with authorized token"
+  },
+  {
+    "event_id": "EVT-2026-005",
+    "timestamp": "2026-10-23T01:22:45Z",
+    "service": "FACULTY-EXAM-ARCHIVE",
+    "account": "faculty_profsmith",
+    "auth_status": "SUCCESS",
+    "ip_address": "198.51.100.88",
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64)",
+    "anomaly_score": 0.95,
+    "risk_level": "CRITICAL",
+    "notes": "Unusual geographic access point for sensitive faculty archive access"
+  }
+]

@@ -1,0 +1,274 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --bg-void: #050608;
+    --bg-primary: #090b10;
+    --bg-surface-1: #0f131c;
+    --bg-surface-2: #151a26;
+    --bg-surface-3: #1c2333;
+    --bg-input: #0b0e15;
+
+    --cyan-primary: #00f5ff;
+    --cyan-hover: #3df8ff;
+    --cyan-dim: #0099a8;
+    --cyan-subtle: rgba(0, 245, 255, 0.08);
+    --cyan-border: rgba(0, 245, 255, 0.22);
+    --cyan-glow: 0 0 20px rgba(0, 245, 255, 0.28);
+
+    --violet-primary: #a855f7;
+    --violet-hover: #c084fc;
+    --violet-dim: #7928ca;
+    --violet-subtle: rgba(168, 85, 247, 0.08);
+    --violet-border: rgba(168, 85, 247, 0.25);
+    --violet-glow: 0 0 20px rgba(168, 85, 247, 0.28);
+
+    --status-critical: #ff3366;
+    --status-critical-bg: rgba(255, 51, 102, 0.12);
+    --status-critical-border: rgba(255, 51, 102, 0.35);
+
+    --status-success: #00ffa3;
+    --status-success-bg: rgba(0, 255, 163, 0.12);
+    --status-success-border: rgba(0, 255, 163, 0.35);
+
+    --status-warning: #ffb703;
+    --status-warning-bg: rgba(255, 183, 3, 0.12);
+    --status-warning-border: rgba(255, 183, 3, 0.35);
+
+    --text-primary: #f8fafc;
+    --text-secondary: #cbd5e1;
+    --text-muted: #8492a6;
+    --text-dim: #505c6e;
+
+    --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    --font-sans: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+}
+
+html, body {
+  min-height: 100%;
+  background-color: var(--bg-void);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.5;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Background Cyber Grid & Ambient Glow */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: 
+    linear-gradient(to right, rgba(0, 245, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 245, 255, 0.03) 1px, transparent 1px);
+  background-size: 36px 36px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at 50% 20%, transparent 40%, rgba(5, 6, 8, 0.9) 90%),
+              radial-gradient(circle at 10% 90%, rgba(168, 85, 247, 0.06), transparent 45%),
+              radial-gradient(circle at 90% 10%, rgba(0, 245, 255, 0.06), transparent 45%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Continuous Scanline Animation */
+.scanline-beam {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(0, 245, 255, 0.5), transparent);
+  opacity: 0.6;
+  pointer-events: none;
+  z-index: 1;
+  animation: scanlineSweep 10s linear infinite;
+}
+
+@keyframes scanlineSweep {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100vh); }
+}
+
+/* Cyber Forensics Utility Classes */
+.cyber-card {
+  background: var(--bg-surface-1);
+  border: 1px solid var(--cyan-border);
+  border-radius: 8px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+  position: relative;
+  overflow: hidden;
+  transition: all 0.25s ease;
+}
+
+.cyber-card:hover {
+  border-color: rgba(0, 245, 255, 0.45);
+  box-shadow: 0 6px 30px rgba(0, 245, 255, 0.12);
+}
+
+.cyber-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.25rem 0.6rem;
+  border-radius: 4px;
+}
+
+.cyber-badge-cyan {
+  background: var(--cyan-subtle);
+  color: var(--cyan-primary);
+  border: 1px solid var(--cyan-border);
+}
+
+.cyber-badge-violet {
+  background: var(--violet-subtle);
+  color: var(--violet-primary);
+  border: 1px solid var(--violet-border);
+}
+
+.cyber-badge-critical {
+  background: var(--status-critical-bg);
+  color: var(--status-critical);
+  border: 1px solid var(--status-critical-border);
+}
+
+.cyber-badge-success {
+  background: var(--status-success-bg);
+  color: var(--status-success);
+  border: 1px solid var(--status-success-border);
+}
+
+.cyber-badge-warning {
+  background: var(--status-warning-bg);
+  color: var(--status-warning);
+  border: 1px solid var(--status-warning-border);
+}
+
+.cyber-input {
+  background: var(--bg-input);
+  border: 1px solid rgba(0, 245, 255, 0.25);
+  color: var(--text-primary);
+  border-radius: 6px;
+  padding: 0.65rem 0.9rem;
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  outline: none;
+  transition: all 0.2s ease;
+  width: 100%;
+}
+
+.cyber-input:focus {
+  border-color: var(--cyan-primary);
+  box-shadow: 0 0 12px rgba(0, 245, 255, 0.25);
+}
+
+.cyber-button-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background: linear-gradient(135deg, #00d2df, #0099a8);
+  color: #050608;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  font-size: 0.88rem;
+  letter-spacing: 0.05em;
+  padding: 0.7rem 1.4rem;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 0 15px rgba(0, 245, 255, 0.35);
+  transition: all 0.2s ease;
+}
+
+.cyber-button-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #3df8ff, #00f5ff);
+  box-shadow: 0 0 25px rgba(0, 245, 255, 0.6);
+  transform: translateY(-1px);
+}
+
+.cyber-button-primary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.cyber-button-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background: rgba(15, 19, 28, 0.85);
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-family: var(--font-mono);
+  font-size: 0.88rem;
+  padding: 0.7rem 1.4rem;
+  border-radius: 6px;
+  border: 1px solid var(--cyan-border);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.cyber-button-secondary:hover:not(:disabled) {
+  border-color: var(--cyan-primary);
+  color: var(--cyan-primary);
+  background: rgba(0, 245, 255, 0.08);
+}
+
+.cyber-terminal {
+  font-family: var(--font-mono);
+  background: #07090e;
+  border: 1px solid rgba(0, 245, 255, 0.2);
+  border-radius: 6px;
+  padding: 1rem;
+  color: #00f5ff;
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
+/* Pulsing radar dot */
+.hud-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--status-success);
+  box-shadow: 0 0 8px var(--status-success);
+  display: inline-block;
+  animation: hudPulse 2s infinite ease-in-out;
+}
+
+.hud-dot-critical {
+  background: var(--status-critical);
+  box-shadow: 0 0 8px var(--status-critical);
+}
+
+.hud-dot-warning {
+  background: var(--status-warning);
+  box-shadow: 0 0 8px var(--status-warning);
+}
+
+@keyframes hudPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.85); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scanline-beam, .hud-dot {
+    animation: none !important;
+  }
+}
