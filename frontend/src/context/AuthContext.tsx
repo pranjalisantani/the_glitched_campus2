@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { apiFetch, getAuthToken, setAuthToken, clearAuthToken } from '../lib/api';
 
 export interface UserTeam {
@@ -28,6 +29,7 @@ export interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const router = useRouter();
   const [user, setUser] = useState<UserTeam | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -45,7 +47,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const data = await apiFetch<{ team: UserTeam }>('/auth/me', { token: savedToken });
       setUser(data.team);
       setToken(savedToken);
-    } catch (err) {
+    } catch {
       console.warn('Session verification failed, clearing credentials.');
       clearAuthToken();
       setUser(null);
@@ -87,9 +89,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     clearAuthToken();
     setToken(null);
     setUser(null);
-    if (typeof window !== 'undefined') {
-      window.location.href = '/login';
-    }
+    router.push('/login');
   };
 
   return (

@@ -4,19 +4,13 @@ import React from 'react';
 import Link from 'next/link';
 import { useAuth } from '../../context/AuthContext';
 import { GameShell } from '../../components/ui/GameShell';
-import { PrimaryButton, GhostButton } from '../../components/ui/Buttons';
+import { PrimaryButton } from '../../components/ui/Buttons';
 import { LoadingState } from '../../components/ui/StateDisplays';
-import { 
-  ShieldAlert, 
-  ArrowRight, 
-  UserCheck, 
-  Lock, 
-  Map, 
-  LayoutDashboard, 
-  UserPlus, 
-  KeyRound,
-  ShieldCheck,
-  Cpu
+import {
+  ArrowRight,
+  UserCheck,
+  Lock,
+  ShieldCheck
 } from 'lucide-react';
 
 export default function GameEntryPage() {
@@ -93,33 +87,24 @@ export default function GameEntryPage() {
               </div>
             </div>
 
-            {/* Primary Action Buttons */}
-            <div className="flex flex-col sm:flex-row items-center gap-4 w-full max-w-md">
+            {/* Primary Action Button */}
+            <div className="w-full max-w-sm">
               <PrimaryButton
-                href="/stages"
-                icon={<Map size={16} />}
-                className="w-full py-3 text-sm shadow-[0_0_20px_rgba(0,245,255,0.35)]"
-                aria-label="Enter Stage Map"
-              >
-                ENTER STAGE MAP
-              </PrimaryButton>
-
-              <GhostButton
                 href="/dashboard"
-                icon={<LayoutDashboard size={16} />}
-                className="w-full py-3 text-sm"
-                aria-label="Open Team Dashboard"
+                icon={<ArrowRight size={16} />}
+                className="w-full py-3 text-sm shadow-md"
+                aria-label="Open Dashboard"
               >
-                TEAM DASHBOARD
-              </GhostButton>
+                OPEN TEAM DASHBOARD
+              </PrimaryButton>
             </div>
 
             {/* Admin shortcut if applicable */}
             {user.role === 'admin' && (
-              <div className="mt-6 pt-6 border-t border-[rgba(0,245,255,0.1)] w-full max-w-md flex justify-center">
+              <div className="mt-6 pt-5 border-t border-[rgba(255,255,255,0.06)] w-full max-w-sm flex justify-center">
                 <Link
                   href="/admin"
-                  className="inline-flex items-center gap-2 text-xs font-mono text-[var(--violet-primary)] hover:text-[var(--violet-hover)] focus-visible:underline"
+                  className="inline-flex items-center gap-2 text-xs font-mono text-[var(--violet-primary)] hover:underline"
                 >
                   <ShieldCheck size={14} aria-hidden="true" />
                   <span>Access Administrator Operations Console</span>
@@ -129,54 +114,52 @@ export default function GameEntryPage() {
           </div>
         ) : (
           /* Unauthenticated Participant View */
-          <div className="cyber-card p-8 border-[var(--cyan-border)] shadow-[0_0_35px_rgba(0,0,0,0.8)] flex flex-col items-center text-center">
-            <div className="w-16 h-16 rounded-xl bg-[rgba(255,183,3,0.12)] border border-[rgba(255,183,3,0.35)] flex items-center justify-center mb-4">
-              <Lock size={30} className="text-[var(--status-warning)]" aria-hidden="true" />
+          <div className="cyber-card p-8 border-[rgba(255,255,255,0.08)] shadow-lg flex flex-col items-center text-center">
+            <div className="w-14 h-14 rounded-lg bg-[rgba(255,183,3,0.1)] border border-[rgba(255,183,3,0.25)] flex items-center justify-center mb-4">
+              <Lock size={26} className="text-[var(--status-warning)]" aria-hidden="true" />
             </div>
 
             <span className="font-mono text-xs uppercase tracking-widest text-[var(--status-warning)] mb-1">
               AUTHENTICATION REQUIRED // ACCESS GATE
             </span>
-            <h2 className="text-2xl sm:text-3xl font-mono font-bold text-white mb-2">
+            <h2 className="text-2xl font-mono font-bold text-white mb-2">
               Identity Clearance Required
             </h2>
-            <p className="text-xs sm:text-sm text-[var(--text-secondary)] font-sans max-w-lg mb-8 leading-relaxed">
-              Competition stages, questions, challenges, and datasets require an active team terminal session. Please authenticate your registered team or create a new team profile.
+            <p className="text-xs sm:text-sm text-[var(--text-secondary)] font-sans max-w-md mb-6 leading-relaxed">
+              Competition stages and challenges require an active team session. Please log in with your team credentials to continue.
             </p>
 
-            {/* Action Buttons */}
-            <div className="flex flex-col sm:flex-row items-center gap-4 w-full max-w-md">
+            {/* Single Primary Action Button */}
+            <div className="w-full max-w-sm mb-4">
               <PrimaryButton
                 href="/login"
-                icon={<KeyRound size={16} />}
+                icon={<ArrowRight size={16} />}
                 className="w-full py-3 text-sm"
                 aria-label="Proceed to Login"
               >
-                AUTHENTICATE IDENTITY
+                CONTINUE TO LOGIN
               </PrimaryButton>
-
-              <GhostButton
-                href="/register"
-                icon={<UserPlus size={16} />}
-                className="w-full py-3 text-sm"
-                aria-label="Register Team"
-              >
-                REGISTER NEW TEAM
-              </GhostButton>
             </div>
 
-            <div className="mt-8 pt-6 border-t border-[rgba(0,245,255,0.1)] w-full max-w-md flex items-center justify-between text-xs font-mono text-[var(--text-dim)]">
+            <div className="text-xs font-mono text-[var(--text-muted)]">
+              Need to register?{' '}
+              <Link href="/register" className="text-[var(--cyan-primary)] hover:underline">
+                Create team account
+              </Link>
+            </div>
+
+            <div className="mt-6 pt-5 border-t border-[rgba(255,255,255,0.06)] w-full max-w-sm flex items-center justify-between text-xs font-mono text-[var(--text-dim)]">
               <Link
                 href="/stages"
-                className="hover:text-[var(--cyan-primary)] transition-colors focus-visible:underline"
+                className="hover:text-white transition-colors"
               >
-                Preview Stage Map
+                Preview Stages
               </Link>
               <Link
                 href="/"
-                className="hover:text-[var(--cyan-primary)] transition-colors focus-visible:underline"
+                className="hover:text-white transition-colors"
               >
-                Return to Briefing
+                Return to Overview
               </Link>
             </div>
           </div>

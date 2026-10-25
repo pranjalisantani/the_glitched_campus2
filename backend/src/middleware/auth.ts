@@ -115,3 +115,30 @@ export function requireStageOpen(stageId: StageId) {
     }
   };
 }
+
+/**
+ * Global competition freeze middleware:
+ * Blocks participant mutations (submissions, hints, selections) when competition is frozen.
+ * Admin users bypass this restriction.
+ */
+export async function requireNotFrozen(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    if (req.user?.role === 'admin') {
+      return next();
+    }
+
+    const settings = await store.getSystemSettings();
+    if (settings.isCompetitionFrozen) {
+      res.status(403).json({
+        error: settings.freezeReason || 'Competition is currently frozen by Incident Command. All stage submissions and selections are temporarily suspended.',
+        code: 'COMPETITION_FROZEN',
+        frozenAt: settings.frozenAt
+      });
+      return;
+    }
+
+    next();
+  } catch (err: any) {
+    res.status(500).json({ error: 'Internal system verification error.', details: err.message });
+  }
+}

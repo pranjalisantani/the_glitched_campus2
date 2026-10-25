@@ -21,7 +21,8 @@ import {
   TeamDatasetSelection,
   ProblemStatement,
   TeamProblemSelection,
-  TeamProgressSummary
+  TeamProgressSummary,
+  SystemSettings
 } from '../types';
 import {
   INITIAL_STAGES,
@@ -49,9 +50,16 @@ export class PersistentFileStore implements IStore {
   private problemStatements: Map<string, ProblemStatement> = new Map();
   private problemSelections: Map<string, TeamProblemSelection> = new Map();
   private auditLogs: AuditLog[] = [];
+  private systemSettings: SystemSettings = {
+    isCompetitionFrozen: false
+  };
 
   constructor(customStorageDir?: string) {
-    this.storageDir = customStorageDir || path.resolve(__dirname, '../../storage/data');
+    const isTest = process.env.NODE_ENV === 'test' || process.argv.some(arg => arg.includes('test'));
+    const defaultDir = isTest
+      ? path.resolve(__dirname, '../../storage/test_data')
+      : path.resolve(__dirname, '../../storage/data');
+    this.storageDir = customStorageDir || defaultDir;
     if (!fs.existsSync(this.storageDir)) {
       fs.mkdirSync(this.storageDir, { recursive: true });
     }
@@ -162,6 +170,14 @@ export class PersistentFileStore implements IStore {
 
     const savedAudits = this.loadCollectionSync<AuditLog[]>('audit_logs.json');
     if (savedAudits) this.auditLogs = savedAudits;
+
+    const savedSettings = this.loadCollectionSync<SystemSettings>('system_settings.json');
+    if (savedSettings && typeof savedSettings === 'object') {
+      this.systemSettings = { ...savedSettings };
+    } else {
+      this.systemSettings = { isCompetitionFrozen: false };
+      this.saveCollectionSync('system_settings.json', this.systemSettings);
+    }
   }
 
   // TEAMS & PARTICIPANTS
@@ -666,6 +682,26 @@ export class PersistentFileStore implements IStore {
     return { ...progress };
   }
 
+  async completeStage2(teamId: string, teamName: string): Promise<TeamStage2Progress> {
+    let progress = this.stage2Progress.get(teamId);
+    if (!progress) {
+      progress = {
+        teamId,
+        teamName,
+        challengeStates: {},
+        hintsUsedCount: 0,
+        deductionMarks: 0,
+        provisionalScore: 10,
+        lastActivityAt: new Date().toISOString()
+      };
+    }
+    progress.completedAt = new Date().toISOString();
+    progress.lastActivityAt = progress.completedAt;
+    this.stage2Progress.set(teamId, progress);
+    this.saveCollectionSync('stage2_progress.json', Array.from(this.stage2Progress.values()));
+    return { ...progress };
+  }
+
   // STAGE 3: DATASETS
   async getDatasets(): Promise<DatasetMetadata[]> {
     return Array.from(this.datasets.values());
@@ -930,6 +966,24 @@ export class PersistentFileStore implements IStore {
 
     this.auditLogs = [];
     this.saveCollectionSync('audit_logs.json', []);
+
+    this.systemSettings = { isCompetitionFrozen: false };
+    this.saveCollectionSync('system_settings.json', this.systemSettings);
+  }
+
+  // System Settings & Global Competition Freeze
+  async getSystemSettings(): Promise<SystemSettings> {
+    return { ...this.systemSettings };
+  }
+
+  async setCompetitionFreeze(isFrozen: boolean, reason?: string, frozenByEmail?: string): Promise<SystemSettings> {
+    this.systemSettings = {
+      isCompetitionFrozen: isFrozen,
+      freezeReason: isFrozen ? (reason || 'Competition paused by Primary Incident Command.') : undefined,
+      frozenAt: isFrozen ? new Date().toISOString() : undefined,
+      frozenByEmail: isFrozen ? frozenByEmail : undefined
+    };
+    this.saveCollectionSync('system_settings.json', this.systemSettings);
+    return { ...this.systemSettings };
   }
 }
-

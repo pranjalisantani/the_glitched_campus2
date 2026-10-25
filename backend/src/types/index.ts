@@ -132,7 +132,7 @@ export interface TabFocusLog {
   id: string;
   teamId: string;
   teamName: string;
-  eventType: 'tab_blur' | 'tab_focus' | 'copy_attempt' | 'context_menu';
+  eventType: 'tab_blur' | 'tab_focus' | 'copy_attempt' | 'cut_attempt' | 'paste_attempt' | 'context_menu';
   timestamp: string;
   details?: string;
 }
@@ -193,6 +193,7 @@ export interface TeamStage2Progress {
   evaluationNote?: string;
   overrideNote?: string;
   lastActivityAt: string;
+  completedAt?: string;
 }
 
 // Stage 3: Dataset EDA Models
@@ -278,4 +279,12 @@ export interface TeamProgressSummary {
     problemId: string | null;
     continuityVerified: boolean;
   };
+}
+
+// Global System Configuration & Competition Freeze
+export interface SystemSettings {
+  isCompetitionFrozen: boolean;
+  freezeReason?: string;
+  frozenAt?: string;
+  frozenByEmail?: string;
 }

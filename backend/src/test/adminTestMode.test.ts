@@ -63,6 +63,9 @@ describe('THE GLITCHED CAMPUS // Admin Test Mode Security & Data Isolation Suite
   });
 
   before(async () => {
+    if (typeof (store as any).resetToSeed === 'function') {
+      (store as any).resetToSeed();
+    }
     await seedDefaultAdmin();
     await new Promise<void>((resolve) => {
       server = app.listen(0, () => {

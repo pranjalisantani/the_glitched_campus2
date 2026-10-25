@@ -1,3 +1,5 @@
+process.env.NODE_ENV = 'test';
+
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'fs';
@@ -57,7 +59,7 @@ test('THE GLITCHED CAMPUS // Admin Event Data Management Test Suite', async (t) 
       (store as any).resetToSeed();
     }
     const passwordHash = await bcrypt.hash('AdminP@ss123!', 10);
-    
+
     // 1. Primary Admin
     const primaryAdmin = await store.createTeam({
       teamName: 'Master Control Admin',

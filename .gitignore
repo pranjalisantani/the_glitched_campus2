@@ -40,3 +40,6 @@ Thumbs.db
 backend/storage/data/*.json
 backend/storage/data/*.tmp
 !backend/storage/data/.gitkeep
+
+# Local generated test data
+backend/storage/test_data/

@@ -158,6 +158,24 @@ describe('THE GLITCHED CAMPUS // Comprehensive & Security Test Suite', () => {
     assert.strictEqual(lockedRes.status, 403);
     assert.strictEqual(lockedRes.data.code, 'STAGE_LOCKED');
 
+    // Reject submissions when Stage 1 is locked
+    const lockedS1SubmitRes = await apiRequest('/api/stage1/submit', {
+      method: 'POST',
+      token: participantToken,
+      body: { answers: { q1: 'A' } }
+    });
+    assert.strictEqual(lockedS1SubmitRes.status, 403);
+    assert.strictEqual(lockedS1SubmitRes.data.code, 'STAGE_LOCKED');
+
+    // Reject submissions when Stage 2 is locked
+    const lockedS2SubmitRes = await apiRequest('/api/stage2/challenges/challenge-01/submit', {
+      method: 'POST',
+      token: participantToken,
+      body: { answer: 'DECODED' }
+    });
+    assert.strictEqual(lockedS2SubmitRes.status, 403);
+    assert.strictEqual(lockedS2SubmitRes.data.code, 'STAGE_LOCKED');
+
     const unlockRes = await apiRequest('/api/admin/stages/stage1', {
       method: 'PATCH',
       token: adminToken,
@@ -293,6 +311,28 @@ describe('THE GLITCHED CAMPUS // Comprehensive & Security Test Suite', () => {
     assert.ok(teamP);
     assert.strictEqual(teamP.hintsUsedCount, 1);
     assert.strictEqual(teamP.deductionMarks, 2);
+
+    // 6.6 Stage 2 finalization / completion submission
+    const preCompleteStatus = await apiRequest('/api/stage2/status', {
+      token: participantToken
+    });
+    assert.strictEqual(preCompleteStatus.status, 200);
+    assert.strictEqual(preCompleteStatus.data.hasSubmitted, false);
+
+    const completeRes = await apiRequest('/api/stage2/complete', {
+      method: 'POST',
+      token: participantToken
+    });
+    assert.strictEqual(completeRes.status, 200);
+    assert.ok(completeRes.data.completedAt);
+    assert.strictEqual(completeRes.data.hintsUsed, 1);
+
+    const postCompleteStatus = await apiRequest('/api/stage2/status', {
+      token: participantToken
+    });
+    assert.strictEqual(postCompleteStatus.status, 200);
+    assert.strictEqual(postCompleteStatus.data.hasSubmitted, true);
+    assert.strictEqual(postCompleteStatus.data.submittedAt, completeRes.data.completedAt);
   });
 
   test('7. Stage 3 Dataset EDA One-Time Selection & Admin Reset', async () => {
@@ -679,5 +719,333 @@ describe('THE GLITCHED CAMPUS // Comprehensive & Security Test Suite', () => {
     assert.strictEqual(recheckTeamSub.submittedAt, originalSubmittedAt, 'Original submission timestamp must remain untouched');
     assert.strictEqual(recheckTeamSub.score, originalScore, 'Original score must not be recalculated');
     assert.deepStrictEqual(recheckTeamSub.answers, originalAnswers, 'Original answers must not be overwritten');
+  });
+
+  test('14. Global Competition Freeze & Primary Admin Server Enforcement', async () => {
+    // 14.1 Initial freeze status check
+    const initialStatus = await apiRequest('/api/freeze-status');
+    assert.strictEqual(initialStatus.status, 200);
+    assert.strictEqual(initialStatus.data.isCompetitionFrozen, false);
+
+    // 14.2 Participant unauthorized attempt to toggle freeze rejected
+    const participantAttempt = await apiRequest('/api/admin/freeze', {
+      method: 'POST',
+      token: participantToken,
+      body: { freeze: true, reason: 'Participant malicious freeze attempt' }
+    });
+    assert.strictEqual(participantAttempt.status, 403);
+    assert.strictEqual(participantAttempt.data.code, 'FORBIDDEN');
+
+    // 14.3 Non-primary event administrator attempt rejected with FORBIDDEN_PRIMARY_ONLY
+    const createAdminRes = await apiRequest('/api/admin/admins', {
+      method: 'POST',
+      token: adminToken,
+      body: {
+        email: 'eventadmin.freeze@nexus.edu',
+        teamName: 'Event Coordinator Freeze Test',
+        password: 'Password123!',
+        adminRole: 'event_admin'
+      }
+    });
+    assert.strictEqual(createAdminRes.status, 201);
+
+    const eventAdminLogin = await apiRequest('/api/auth/login', {
+      method: 'POST',
+      body: {
+        emailOrTeamName: 'eventadmin.freeze@nexus.edu',
+        password: 'Password123!'
+      }
+    });
+    assert.strictEqual(eventAdminLogin.status, 200);
+    const eventAdminToken = eventAdminLogin.data.token;
+
+    const eventAdminAttempt = await apiRequest('/api/admin/freeze', {
+      method: 'POST',
+      token: eventAdminToken,
+      body: { freeze: true, reason: 'Event admin unauthorized freeze attempt' }
+    });
+    assert.strictEqual(eventAdminAttempt.status, 403);
+    assert.strictEqual(eventAdminAttempt.data.code, 'FORBIDDEN_PRIMARY_ONLY');
+
+    // 14.4 Primary administrator enacts global competition freeze
+    const enactFreezeRes = await apiRequest('/api/admin/freeze', {
+      method: 'POST',
+      token: adminToken,
+      body: { isFrozen: true, reason: 'Mid-competition audit pause' }
+    });
+    assert.strictEqual(enactFreezeRes.status, 200);
+    assert.strictEqual(enactFreezeRes.data.settings.isCompetitionFrozen, true);
+    assert.strictEqual(enactFreezeRes.data.settings.freezeReason, 'Mid-competition audit pause');
+
+    // Verify public status endpoint reports frozen state
+    const frozenStatusRes = await apiRequest('/api/freeze-status');
+    assert.strictEqual(frozenStatusRes.status, 200);
+    assert.strictEqual(frozenStatusRes.data.isCompetitionFrozen, true);
+    assert.strictEqual(frozenStatusRes.data.freezeReason, 'Mid-competition audit pause');
+
+    // 14.5 Register a fresh participant team during or right before freeze
+    const freshTeamRes = await apiRequest('/api/auth/register', {
+      method: 'POST',
+      body: {
+        teamName: 'FreezeTestTeam',
+        email: 'freezetest@nexus.edu',
+        password: 'Password123!',
+        members: ['Tester Frozen']
+      }
+    });
+    assert.strictEqual(freshTeamRes.status, 201);
+    const freshToken = freshTeamRes.data.token;
+
+    // 14.6 Verify all participant state-mutating endpoints are blocked server-side
+    // Stage 1 submit blocked
+    const s1Blocked = await apiRequest('/api/stage1/submit', {
+      method: 'POST',
+      token: freshToken,
+      body: { answers: { q1: 'A' } }
+    });
+    assert.strictEqual(s1Blocked.status, 403);
+    assert.strictEqual(s1Blocked.data.code, 'COMPETITION_FROZEN');
+
+    // Stage 2 hint request blocked
+    const s2HintBlocked = await apiRequest('/api/stage2/challenges/challenge-01/hint', {
+      method: 'POST',
+      token: freshToken
+    });
+    assert.strictEqual(s2HintBlocked.status, 403);
+    assert.strictEqual(s2HintBlocked.data.code, 'COMPETITION_FROZEN');
+
+    // Stage 2 answer submission blocked
+    const s2SubmitBlocked = await apiRequest('/api/stage2/challenges/challenge-01/submit', {
+      method: 'POST',
+      token: freshToken,
+      body: { answer: 'DECODED' }
+    });
+    assert.strictEqual(s2SubmitBlocked.status, 403);
+    assert.strictEqual(s2SubmitBlocked.data.code, 'COMPETITION_FROZEN');
+
+    // Stage 2 completion finalization blocked during freeze
+    const s2CompleteBlocked = await apiRequest('/api/stage2/complete', {
+      method: 'POST',
+      token: freshToken
+    });
+    assert.strictEqual(s2CompleteBlocked.status, 403);
+    assert.strictEqual(s2CompleteBlocked.data.code, 'COMPETITION_FROZEN');
+
+    // Stage 3 dataset selection blocked
+    const s3Blocked = await apiRequest('/api/stage3/select', {
+      method: 'POST',
+      token: freshToken,
+      body: { datasetId: 'ds-01' }
+    });
+    assert.strictEqual(s3Blocked.status, 403);
+    assert.strictEqual(s3Blocked.data.code, 'COMPETITION_FROZEN');
+
+    // Stage 4 problem selection blocked
+    const s4Blocked = await apiRequest('/api/stage4/select', {
+      method: 'POST',
+      token: freshToken,
+      body: { problemId: 'ps-01' }
+    });
+    assert.strictEqual(s4Blocked.status, 403);
+    assert.strictEqual(s4Blocked.data.code, 'COMPETITION_FROZEN');
+
+    // 14.7 Read-only endpoints pass through and work normally during freeze
+    const s1Questions = await apiRequest('/api/stage1/questions', { token: freshToken });
+    assert.strictEqual(s1Questions.status, 200);
+    assert.ok(Array.isArray(s1Questions.data));
+
+    const s2Challenges = await apiRequest('/api/stage2/challenges', { token: freshToken });
+    assert.strictEqual(s2Challenges.status, 200);
+    assert.ok(Array.isArray(s2Challenges.data));
+
+    const s3Datasets = await apiRequest('/api/stage3/datasets', { token: freshToken });
+    assert.strictEqual(s3Datasets.status, 200);
+    assert.ok(Array.isArray(s3Datasets.data));
+
+    const s4Problems = await apiRequest('/api/stage4/problems', { token: freshToken });
+    assert.strictEqual(s4Problems.status, 200);
+    assert.ok(Array.isArray(s4Problems.data));
+
+    // 14.8 Primary administrator lifts the freeze
+    const unfreezeRes = await apiRequest('/api/admin/freeze', {
+      method: 'POST',
+      token: adminToken,
+      body: { isFrozen: false }
+    });
+    assert.strictEqual(unfreezeRes.status, 200);
+    assert.strictEqual(unfreezeRes.data.settings.isCompetitionFrozen, false);
+
+    const postUnfreezeStatus = await apiRequest('/api/freeze-status');
+    assert.strictEqual(postUnfreezeStatus.status, 200);
+    assert.strictEqual(postUnfreezeStatus.data.isCompetitionFrozen, false);
+
+    // Ensure Stage 3 is open for selection
+    await apiRequest('/api/admin/stages/stage3', {
+      method: 'PATCH',
+      token: adminToken,
+      body: { status: 'open' }
+    });
+
+    // Participant mutation can now proceed normally after freeze is lifted
+    const s3AllowedAfter = await apiRequest('/api/stage3/select', {
+      method: 'POST',
+      token: freshToken,
+      body: { datasetId: s3Datasets.data[0].id }
+    });
+    assert.strictEqual(s3AllowedAfter.status, 201);
+    assert.strictEqual(s3AllowedAfter.data.selection.datasetId, s3Datasets.data[0].id);
+  });
+
+  test('15. Stage 1 Extended Telemetry & Copy/Cut/Paste/ContextMenu Auditing', async () => {
+    // 15.1 Verify all permitted telemetry event types succeed
+    const eventTypes = [
+      'tab_blur',
+      'tab_focus',
+      'copy_attempt',
+      'cut_attempt',
+      'paste_attempt',
+      'context_menu'
+    ] as const;
+
+    for (const evt of eventTypes) {
+      const logRes = await apiRequest('/api/stage1/log-event', {
+        method: 'POST',
+        token: participantToken,
+        body: {
+          eventType: evt,
+          details: `Automated test signal for ${evt}`
+        }
+      });
+      assert.strictEqual(logRes.status, 201);
+      assert.strictEqual(logRes.data.status, 'logged');
+    }
+
+    // 15.2 Invalid event type is rejected with 400
+    const invalidRes = await apiRequest('/api/stage1/log-event', {
+      method: 'POST',
+      token: participantToken,
+      body: {
+        eventType: 'unauthorized_arbitrary_event',
+        details: 'Malicious payload'
+      }
+    });
+    assert.strictEqual(invalidRes.status, 400);
+    assert.strictEqual(invalidRes.data.error, 'Invalid event type.');
+
+    // 15.3 Admin fetches logs and confirms cut and paste attempts are properly recorded
+    const logsRes = await apiRequest('/api/admin/stage1/event-logs', {
+      token: adminToken
+    });
+    assert.strictEqual(logsRes.status, 200);
+    assert.ok(Array.isArray(logsRes.data));
+
+    const cutLogs = logsRes.data.filter((l: any) => l.eventType === 'cut_attempt');
+    const pasteLogs = logsRes.data.filter((l: any) => l.eventType === 'paste_attempt');
+    const copyLogs = logsRes.data.filter((l: any) => l.eventType === 'copy_attempt');
+    const ctxLogs = logsRes.data.filter((l: any) => l.eventType === 'context_menu');
+
+    assert.ok(cutLogs.length >= 1, 'Cut attempts must be logged in audit trail');
+    assert.ok(pasteLogs.length >= 1, 'Paste attempts must be logged in audit trail');
+    assert.ok(copyLogs.length >= 1, 'Copy attempts must be logged in audit trail');
+    assert.ok(ctxLogs.length >= 1, 'Context menu attempts must be logged in audit trail');
+
+    // Verify metadata fidelity
+    const sampleLog = cutLogs[0];
+    assert.ok(sampleLog.teamId, 'Log must include teamId');
+    assert.ok(sampleLog.teamName, 'Log must include teamName');
+    assert.ok(sampleLog.timestamp, 'Log must include timestamp');
+    assert.ok(sampleLog.details.includes('cut_attempt'), 'Log must preserve event details');
+  });
+
+  test('16. Input Validation, Type Safety, and Error Shielding', async () => {
+    // 16.1 Registration member bounds (maximum 5 members enforced)
+    const overMemberRes = await apiRequest('/api/auth/register', {
+      method: 'POST',
+      body: {
+        teamName: 'OverLimitTeam',
+        email: 'overlimit@nexus.edu',
+        password: 'Password123!',
+        members: ['M1', 'M2', 'M3', 'M4', 'M5', 'M6']
+      }
+    });
+    assert.strictEqual(overMemberRes.status, 400);
+    assert.strictEqual(overMemberRes.data.error, 'A team can have a maximum of 5 members.');
+
+    // 16.2 Successful registration within limit
+    const valRegRes = await apiRequest('/api/auth/register', {
+      method: 'POST',
+      body: {
+        teamName: 'InputValidationSquad',
+        email: 'val_squad@nexus.edu',
+        password: 'Password123!',
+        members: ['Val Lead', 'QA Specialist']
+      }
+    });
+    assert.strictEqual(valRegRes.status, 201);
+    const valToken = valRegRes.data.token;
+
+    // 16.3 Login type safety: non-string email/teamName or password rejected with 400
+    const nonStringLogin1 = await apiRequest('/api/auth/login', {
+      method: 'POST',
+      body: {
+        emailOrTeamName: 12345,
+        password: 'Password123!'
+      }
+    });
+    assert.strictEqual(nonStringLogin1.status, 400);
+
+    const nonStringLogin2 = await apiRequest('/api/auth/login', {
+      method: 'POST',
+      body: {
+        emailOrTeamName: 'val_squad@nexus.edu',
+        password: true
+      }
+    });
+    assert.strictEqual(nonStringLogin2.status, 400);
+
+    // 16.4 Stage 1 submit input validation: empty, array, forbidden keys, or malformed payloads rejected
+    const emptyAnswersRes = await apiRequest('/api/stage1/submit', {
+      method: 'POST',
+      token: valToken,
+      body: { answers: {} }
+    });
+    assert.strictEqual(emptyAnswersRes.status, 400);
+
+    const arrayAnswersRes = await apiRequest('/api/stage1/submit', {
+      method: 'POST',
+      token: valToken,
+      body: { answers: ['A', 'B'] }
+    });
+    assert.strictEqual(arrayAnswersRes.status, 400);
+
+    const forbiddenKeyRes = await apiRequest('/api/stage1/submit', {
+      method: 'POST',
+      token: valToken,
+      body: { answers: { constructor: 'A' } }
+    });
+    assert.strictEqual(forbiddenKeyRes.status, 400);
+
+    const nonStringAnswerRes = await apiRequest('/api/stage1/submit', {
+      method: 'POST',
+      token: valToken,
+      body: { answers: { q1: 12345 } }
+    });
+    assert.strictEqual(nonStringAnswerRes.status, 400);
+
+    // 16.5 Stage 3 select invalid dataset returns 404
+    const invalidDatasetRes = await apiRequest('/api/stage3/select', {
+      method: 'POST',
+      token: valToken,
+      body: { datasetId: 'non-existent-dataset-id' }
+    });
+    assert.strictEqual(invalidDatasetRes.status, 404);
+
+    // 16.6 Stage 4 select invalid problem statement returns 404
+    const invalidProblemRes = await apiRequest('/api/stage4/select', {
+      method: 'POST',
+      token: valToken,
+      body: { problemId: 'non-existent-problem-id' }
+    });
+    assert.strictEqual(invalidProblemRes.status, 404);
   });
 });

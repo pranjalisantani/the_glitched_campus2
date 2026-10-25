@@ -1,8 +1,8 @@
-﻿import { Router, Request, Response } from 'express';
+import { Router, Request, Response } from 'express';
 import path from 'path';
 import fs from 'fs';
 import { store, DuplicateQuizSubmissionError } from '../store';
-import { requireAuth, requireStageOpen, AuthenticatedRequest } from '../middleware/auth';
+import { requireAuth, requireStageOpen, requireNotFrozen, AuthenticatedRequest } from '../middleware/auth';
 import { resolveSecureDatasetPath } from '../utils/datasetStorage';
 
 const router = Router();
@@ -14,6 +14,16 @@ router.get('/stages', async (req: Request, res: Response): Promise<void> => {
     res.json(stages);
   } catch (err: any) {
     res.status(500).json({ error: 'Failed to fetch stages.', details: err.message });
+  }
+});
+
+// Public: View current competition freeze status
+router.get('/freeze-status', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const settings = await store.getSystemSettings();
+    res.json(settings);
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to fetch freeze status.', details: err.message });
   }
 });
 
@@ -31,8 +41,8 @@ router.get('/stage1/questions', requireAuth, requireStageOpen('stage1'), async (
   }
 });
 
-// Submit live quiz answers
-router.post('/stage1/submit', requireAuth, requireStageOpen('stage1'), async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+// Submit live quiz answers (Enforces freeze & stage open)
+router.post('/stage1/submit', requireAuth, requireStageOpen('stage1'), requireNotFrozen, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     if (!req.user) {
       res.status(401).json({ error: 'Unauthorized.' });
@@ -40,9 +50,21 @@ router.post('/stage1/submit', requireAuth, requireStageOpen('stage1'), async (re
     }
 
     const { answers } = req.body;
-    if (!answers || typeof answers !== 'object') {
-      res.status(400).json({ error: 'Answers payload must be an object mapping question IDs to chosen options.' });
+    if (!answers || typeof answers !== 'object' || Array.isArray(answers) || Object.keys(answers).length === 0) {
+      res.status(400).json({ error: 'Answers payload must be a non-empty object mapping question IDs to chosen options.' });
       return;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(answers, '__proto__') || Object.prototype.hasOwnProperty.call(answers, 'constructor') || Object.prototype.hasOwnProperty.call(answers, 'prototype')) {
+      res.status(400).json({ error: 'Invalid answer key provided.' });
+      return;
+    }
+
+    for (const [key, val] of Object.entries(answers)) {
+      if (typeof val !== 'string') {
+        res.status(400).json({ error: 'Answer option IDs must be strings.' });
+        return;
+      }
     }
 
     // Submit answers and compute server-side score
@@ -96,7 +118,7 @@ router.post('/stage1/log-event', requireAuth, async (req: AuthenticatedRequest, 
     }
 
     const { eventType, details } = req.body;
-    if (!['tab_blur', 'tab_focus', 'copy_attempt', 'context_menu'].includes(eventType)) {
+    if (!['tab_blur', 'tab_focus', 'copy_attempt', 'cut_attempt', 'paste_attempt', 'context_menu'].includes(eventType)) {
       res.status(400).json({ error: 'Invalid event type.' });
       return;
     }
@@ -133,8 +155,8 @@ router.get('/stage2/challenges', requireAuth, requireStageOpen('stage2'), async 
   }
 });
 
-// Request / unlock challenge hint (deducts 2 marks server-side)
-router.post('/stage2/challenges/:id/hint', requireAuth, requireStageOpen('stage2'), async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+// Request / unlock challenge hint (deducts 2 marks server-side, blocked when frozen)
+router.post('/stage2/challenges/:id/hint', requireAuth, requireStageOpen('stage2'), requireNotFrozen, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     if (!req.user) {
       res.status(401).json({ error: 'Unauthorized.' });
@@ -153,8 +175,8 @@ router.post('/stage2/challenges/:id/hint', requireAuth, requireStageOpen('stage2
   }
 });
 
-// Submit challenge attempt (Enforces max 3 attempts rule)
-router.post('/stage2/challenges/:id/submit', requireAuth, requireStageOpen('stage2'), async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+// Submit challenge attempt (Enforces max 3 attempts rule & freeze check)
+router.post('/stage2/challenges/:id/submit', requireAuth, requireStageOpen('stage2'), requireNotFrozen, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     if (!req.user) {
       res.status(401).json({ error: 'Unauthorized.' });
@@ -183,6 +205,26 @@ router.post('/stage2/challenges/:id/submit', requireAuth, requireStageOpen('stag
   }
 });
 
+// Finalize and submit Stage 2 assessment (Enforces freeze & stage open)
+router.post('/stage2/complete', requireAuth, requireStageOpen('stage2'), requireNotFrozen, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ error: 'Unauthorized.' });
+      return;
+    }
+
+    const progress = await store.completeStage2(req.user.teamId, req.user.teamName);
+    res.json({
+      message: 'Stage 2 assessment completed successfully.',
+      completedAt: progress.completedAt,
+      hintsUsed: progress.hintsUsedCount,
+      provisionalScore: progress.provisionalScore
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to complete Stage 2.', details: err.message });
+  }
+});
+
 // Get team Stage 2 summary
 router.get('/stage2/status', requireAuth, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
@@ -194,7 +236,9 @@ router.get('/stage2/status', requireAuth, async (req: AuthenticatedRequest, res:
     const progress = await store.getTeamStage2Progress(req.user.teamId);
     res.json({
       hintsUsed: progress?.hintsUsedCount || 0,
-      challengeStates: progress?.challengeStates || {}
+      challengeStates: progress?.challengeStates || {},
+      hasSubmitted: Boolean(progress?.completedAt),
+      submittedAt: progress?.completedAt || null
     });
   } catch (err: any) {
     res.status(500).json({ error: 'Failed to retrieve Stage 2 status.', details: err.message });
@@ -215,8 +259,8 @@ router.get('/stage3/datasets', requireAuth, requireStageOpen('stage3'), async (r
   }
 });
 
-// Select one dataset (Enforces strict one-time selection per team)
-router.post('/stage3/select', requireAuth, requireStageOpen('stage3'), async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+// Select one dataset (Enforces strict one-time selection per team & freeze check)
+router.post('/stage3/select', requireAuth, requireStageOpen('stage3'), requireNotFrozen, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     if (!req.user) {
       res.status(401).json({ error: 'Unauthorized.' });
@@ -235,6 +279,10 @@ router.post('/stage3/select', requireAuth, requireStageOpen('stage3'), async (re
       selection
     });
   } catch (err: any) {
+    if (err.message === 'Dataset not found.') {
+      res.status(404).json({ error: err.message });
+      return;
+    }
     res.status(400).json({ error: err.message });
   }
 });
@@ -309,8 +357,8 @@ router.get('/stage4/problems', requireAuth, requireStageOpen('stage4'), async (r
   }
 });
 
-// Select one problem statement (Strict one-time selection)
-router.post('/stage4/select', requireAuth, requireStageOpen('stage4'), async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+// Select one problem statement (Strict one-time selection & freeze check)
+router.post('/stage4/select', requireAuth, requireStageOpen('stage4'), requireNotFrozen, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     if (!req.user) {
       res.status(401).json({ error: 'Unauthorized.' });
@@ -329,6 +377,10 @@ router.post('/stage4/select', requireAuth, requireStageOpen('stage4'), async (re
       selection
     });
   } catch (err: any) {
+    if (err.message === 'Problem statement not found.') {
+      res.status(404).json({ error: err.message });
+      return;
+    }
     res.status(400).json({ error: err.message });
   }
 });
@@ -397,4 +449,3 @@ router.get('/stage5/problem', requireAuth, requireStageOpen('stage5'), async (re
 });
 
 export default router;
-

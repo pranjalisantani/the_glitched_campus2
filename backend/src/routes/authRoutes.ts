@@ -39,6 +39,11 @@ router.post('/register', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    if (cleanMembers.length > 5) {
+      res.status(400).json({ error: 'A team can have a maximum of 5 members.' });
+      return;
+    }
+
     const existingEmail = await store.findTeamByEmail(email);
     if (existingEmail) {
       res.status(409).json({ error: 'A team is already registered with this email address.' });
@@ -81,7 +86,8 @@ router.post('/register', async (req: Request, res: Response): Promise<void> => {
       }
     });
   } catch (err: any) {
-    res.status(500).json({ error: 'Registration failed due to a server error.', details: err.message });
+    console.error('[AUTH] Registration server error:', err);
+    res.status(500).json({ error: 'Registration failed due to a server error.' });
   }
 });
 
@@ -90,7 +96,7 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
   try {
     const { emailOrTeamName, password } = req.body;
 
-    if (!emailOrTeamName || !password) {
+    if (!emailOrTeamName || typeof emailOrTeamName !== 'string' || !password || typeof password !== 'string') {
       res.status(400).json({ error: 'Please provide both email/team name and password.' });
       return;
     }
@@ -137,7 +143,8 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
       }
     });
   } catch (err: any) {
-    res.status(500).json({ error: 'Login failure.', details: err.message });
+    console.error('[AUTH] Login server error:', err);
+    res.status(500).json({ error: 'Login failure.' });
   }
 });
 
@@ -197,7 +204,8 @@ router.get('/me', requireAuth, async (req: AuthenticatedRequest, res: Response):
       }
     });
   } catch (err: any) {
-    res.status(500).json({ error: 'Failed to retrieve profile.', details: err.message });
+    console.error('[AUTH] Profile retrieval error:', err);
+    res.status(500).json({ error: 'Failed to retrieve profile.' });
   }
 });
 

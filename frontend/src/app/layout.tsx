@@ -22,11 +22,11 @@ export default function RootLayout({
           <main className="flex-1 flex flex-col relative z-10 w-full">
             {children}
           </main>
-          <footer className="w-full border-t border-[rgba(0,245,255,0.12)] bg-[rgba(9,11,16,0.85)] py-4 text-center text-xs font-mono text-[var(--text-dim)]">
+          <footer className="w-full border-t border-[rgba(255,255,255,0.06)] bg-[rgba(9,11,16,0.85)] py-4 text-center text-xs font-mono text-[var(--text-dim)]">
             <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
               <span>THE GLITCHED CAMPUS // INCIDENT ID #NEXUS-GLITCH-2026-B</span>
-              <span className="text-[11px] text-[var(--cyan-primary)]">
-                Provisional Data Store: In-Memory Mode Active
+              <span className="text-[11px] text-[var(--text-muted)]">
+                Cyber Operations Platform
               </span>
             </div>
           </footer>

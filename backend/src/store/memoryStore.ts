@@ -19,7 +19,8 @@ import {
   TeamDatasetSelection,
   ProblemStatement,
   TeamProblemSelection,
-  TeamProgressSummary
+  TeamProgressSummary,
+  SystemSettings
 } from '../types';
 import {
   INITIAL_STAGES,
@@ -77,6 +78,7 @@ export interface IStore {
   getAllStage2Progress(): Promise<TeamStage2Progress[]>;
   resetStage2Progress(teamId: string): Promise<boolean>;
   updateStage2Score(teamId: string, newScore: number, note?: string): Promise<TeamStage2Progress | null>;
+  completeStage2(teamId: string, teamName: string): Promise<TeamStage2Progress>;
 
   // Stage 3 (Dataset EDA)
   getDatasets(): Promise<DatasetMetadata[]>;
@@ -106,6 +108,10 @@ export interface IStore {
 
   // Global Progress Summary
   getTeamProgressSummaries(): Promise<TeamProgressSummary[]>;
+
+  // System Settings & Global Competition Freeze
+  getSystemSettings(): Promise<SystemSettings>;
+  setCompetitionFreeze(isFrozen: boolean, reason?: string, frozenByEmail?: string): Promise<SystemSettings>;
 }
 
 export class DuplicateQuizSubmissionError extends Error {
@@ -650,6 +656,25 @@ export class MemoryStore implements IStore {
     return JSON.parse(JSON.stringify(prog));
   }
 
+  async completeStage2(teamId: string, teamName: string): Promise<TeamStage2Progress> {
+    let prog = this.stage2Progress.get(teamId);
+    if (!prog) {
+      prog = {
+        teamId,
+        teamName,
+        challengeStates: {},
+        hintsUsedCount: 0,
+        deductionMarks: 0,
+        provisionalScore: 10,
+        lastActivityAt: new Date().toISOString()
+      };
+    }
+    prog.completedAt = new Date().toISOString();
+    prog.lastActivityAt = prog.completedAt;
+    this.stage2Progress.set(teamId, prog);
+    return JSON.parse(JSON.stringify(prog));
+  }
+
   // STAGE 3: DATASET EDA
   async getDatasets(): Promise<DatasetMetadata[]> {
     return Array.from(this.datasets.values());
@@ -858,5 +883,24 @@ export class MemoryStore implements IStore {
         }
       };
     });
+  }
+
+  // System Settings & Global Competition Freeze
+  private systemSettings: SystemSettings = {
+    isCompetitionFrozen: false
+  };
+
+  async getSystemSettings(): Promise<SystemSettings> {
+    return { ...this.systemSettings };
+  }
+
+  async setCompetitionFreeze(isFrozen: boolean, reason?: string, frozenByEmail?: string): Promise<SystemSettings> {
+    this.systemSettings = {
+      isCompetitionFrozen: isFrozen,
+      freezeReason: isFrozen ? (reason || 'Competition paused by Primary Incident Command.') : undefined,
+      frozenAt: isFrozen ? new Date().toISOString() : undefined,
+      frozenByEmail: isFrozen ? frozenByEmail : undefined
+    };
+    return { ...this.systemSettings };
   }
 }

@@ -4,8 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '../../../context/AuthContext';
-import { ShieldCheck, Lock, Eye, EyeOff, AlertTriangle, ArrowRight, ShieldAlert } from 'lucide-react';
-import { PrimaryButton, GhostButton } from '../../../components/ui/Buttons';
+import { ShieldCheck, Eye, EyeOff, AlertTriangle, ArrowRight } from 'lucide-react';
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -39,17 +38,17 @@ export default function AdminLoginPage() {
 
   return (
     <div className="flex-1 flex items-center justify-center px-4 py-12">
-      <div className="w-full max-w-md cyber-card p-8 border-[var(--violet-border)] shadow-[0_0_35px_rgba(168,85,247,0.2)]">
-        
+      <div className="w-full max-w-md cyber-card p-8 border border-[rgba(255,255,255,0.08)] shadow-2xl">
+
         {/* Header */}
         <div className="flex flex-col items-center text-center mb-6">
-          <div className="w-12 h-12 rounded-lg bg-[rgba(168,85,247,0.12)] border border-[rgba(168,85,247,0.35)] flex items-center justify-center mb-3 shadow-[0_0_15px_rgba(168,85,247,0.3)]">
-            <ShieldCheck size={26} className="text-[var(--violet-primary)]" aria-hidden="true" />
+          <div className="w-12 h-12 rounded-lg bg-[rgba(168,85,247,0.1)] border border-[rgba(168,85,247,0.25)] flex items-center justify-center mb-3">
+            <ShieldCheck size={24} className="text-[var(--violet-primary)]" aria-hidden="true" />
           </div>
-          <span className="font-mono text-xs uppercase tracking-widest text-[var(--violet-primary)]">
+          <span className="font-mono text-[11px] uppercase tracking-widest text-[var(--violet-primary)]">
             ELEVATED CLEARANCE GATEWAY
           </span>
-          <h1 className="text-2xl font-bold font-mono text-white mt-1">
+          <h1 className="glitch-title text-2xl font-bold font-mono text-white mt-1" data-text="Administrator Terminal">
             Administrator Terminal
           </h1>
           <p className="text-xs text-[var(--text-muted)] mt-1 font-mono">

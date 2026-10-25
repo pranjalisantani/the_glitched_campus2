@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Sliders, Settings2, X, Plus } from 'lucide-react';
-import { apiFetch } from '../../lib/api';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Sliders, Settings2, X, Plus, PauseCircle, PlayCircle, ShieldAlert, AlertTriangle } from 'lucide-react';
+import { apiFetch, getFreezeStatus, setCompetitionFreeze } from '../../lib/api';
 
 export interface StageConfig {
   id: string;
@@ -17,14 +17,28 @@ export interface StageConfig {
   submissionRequirements?: string[];
 }
 
+interface FreezeState {
+  isCompetitionFrozen: boolean;
+  freezeReason?: string;
+  frozenAt?: string;
+  frozenByEmail?: string;
+}
+
 interface Props {
   stages: StageConfig[];
   onUpdateStatus: (stageId: string, status: 'LOCKED' | 'OPEN' | 'CLOSED') => void;
   onRefresh?: () => void;
   onNotice?: (msg: string) => void;
+  isPrimaryAdmin?: boolean;
 }
 
-export const StageControlsTab: React.FC<Props> = ({ stages, onUpdateStatus, onRefresh, onNotice }) => {
+export const StageControlsTab: React.FC<Props> = ({
+  stages,
+  onUpdateStatus,
+  onRefresh,
+  onNotice,
+  isPrimaryAdmin
+}) => {
   const [editingStage, setEditingStage] = useState<StageConfig | null>(null);
   const [editMaxScore, setEditMaxScore] = useState<number>(10);
   const [editNotes, setEditNotes] = useState<string>('');
@@ -33,6 +47,54 @@ export const StageControlsTab: React.FC<Props> = ({ stages, onUpdateStatus, onRe
   const [editReqs, setEditReqs] = useState<string[]>([]);
   const [newReq, setNewReq] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Freeze state
+  const [freezeState, setFreezeState] = useState<FreezeState>({ isCompetitionFrozen: false });
+  const [freezeLoading, setFreezeLoading] = useState(false);
+  const [showFreezeModal, setShowFreezeModal] = useState(false);
+  const [showUnfreezeModal, setShowUnfreezeModal] = useState(false);
+  const [freezeReasonInput, setFreezeReasonInput] = useState('');
+
+  const fetchFreeze = useCallback(async () => {
+    try {
+      const res = await getFreezeStatus();
+      setFreezeState(res);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchFreeze();
+  }, [fetchFreeze]);
+
+  const handleToggleFreeze = async (newFreezeState: boolean, reason?: string) => {
+    if (!isPrimaryAdmin) {
+      alert('Only the primary administrator can toggle the global competition freeze.');
+      return;
+    }
+
+    setFreezeLoading(true);
+    try {
+      const res = await setCompetitionFreeze(newFreezeState, reason);
+      setFreezeState({
+        isCompetitionFrozen: res.settings.isCompetitionFrozen,
+        freezeReason: res.settings.freezeReason,
+        frozenAt: res.settings.frozenAt,
+        frozenByEmail: res.settings.frozenByEmail
+      });
+      setShowFreezeModal(false);
+      setFreezeReasonInput('');
+      if (onNotice) {
+        onNotice(res.settings.isCompetitionFrozen ? 'Global Competition Freeze ACTIVATED' : 'Global Competition Freeze LIFTED');
+      }
+      if (onRefresh) onRefresh();
+    } catch (err: any) {
+      alert(err.message || 'Failed to update competition freeze status.');
+    } finally {
+      setFreezeLoading(false);
+    }
+  };
 
   const handleOpenEdit = (stage: StageConfig) => {
     setEditingStage(stage);
@@ -88,124 +150,314 @@ export const StageControlsTab: React.FC<Props> = ({ stages, onUpdateStatus, onRe
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between mb-2">
-        <div>
-          <h2 className="text-xl font-bold font-mono text-white flex items-center gap-2">
-            <Sliders size={20} className="text-[var(--cyan-primary)]" />
-            Global Stage Gates & Operational Criteria
-          </h2>
-          <p className="text-xs font-mono text-[var(--text-dim)] mt-0.5">
-            Configure stage locks, maximum scores, evaluation criteria, and submission requirements.
-          </p>
+    <div className="space-y-8">
+
+      {/* Global Competition Freeze Control Card */}
+      <div className={`cyber-card p-6 border-2 transition-all ${
+        freezeState.isCompetitionFrozen
+          ? 'border-[var(--status-critical)] bg-[rgba(255,51,102,0.06)] shadow-[0_0_30px_rgba(255,51,102,0.2)]'
+          : 'border-[var(--cyan-primary)]/40 bg-black/40'
+      }`}>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <span className={`px-2 py-0.5 rounded font-mono text-xs font-bold ${
+                freezeState.isCompetitionFrozen
+                  ? 'bg-[var(--status-critical)] text-white animate-pulse'
+                  : 'bg-[var(--cyan-primary)]/20 text-[var(--cyan-primary)]'
+              }`}>
+                {freezeState.isCompetitionFrozen ? 'GLOBAL FREEZE ACTIVE' : 'SYSTEM STATUS: OPERATIONAL'}
+              </span>
+              <span className="text-xs font-mono text-[var(--text-dim)]">
+                [Primary Admin Server Enforcement]
+              </span>
+            </div>
+
+            <h2 className="text-lg font-bold font-mono text-white mb-1 flex items-center gap-2">
+              <ShieldAlert size={20} className={freezeState.isCompetitionFrozen ? 'text-[var(--status-critical)]' : 'text-[var(--cyan-primary)]'} />
+              Global Competition Freeze Control
+            </h2>
+            <p className="text-xs text-[var(--text-secondary)] font-mono max-w-2xl leading-relaxed">
+              When activated, all participant submissions and stage selections across Stages 1–5 are blocked server-side.
+              Participants retain read-only access to view materials and instructions. All team progress and scores are preserved.
+            </p>
+
+            {freezeState.isCompetitionFrozen && (
+              <div className="mt-3 p-3 rounded bg-black/50 border border-[var(--status-critical)]/40 text-xs font-mono text-gray-300 space-y-1">
+                <div>Freeze Reason: <strong className="text-white">{freezeState.freezeReason || 'No reason provided'}</strong></div>
+                {freezeState.frozenAt && (
+                  <div>Enacted At: <span className="text-[var(--text-dim)]">{new Date(freezeState.frozenAt).toLocaleString()}</span></div>
+                )}
+                {freezeState.frozenByEmail && (
+                  <div>Enacted By: <span className="text-[var(--text-dim)]">{freezeState.frozenByEmail}</span></div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="shrink-0 flex flex-col items-end gap-2">
+            {isPrimaryAdmin ? (
+              freezeState.isCompetitionFrozen ? (
+                <button
+                  type="button"
+                  disabled={freezeLoading}
+                  onClick={() => setShowUnfreezeModal(true)}
+                  className="px-5 py-2.5 rounded font-mono text-xs font-bold bg-[#00ffa3] text-black hover:bg-[#00ffa3]/80 transition-all flex items-center gap-2 shadow-[0_0_20px_rgba(0,255,163,0.3)]"
+                >
+                  <PlayCircle size={16} />
+                  <span>{freezeLoading ? 'LIFTING FREEZE...' : 'LIFT COMPETITION FREEZE'}</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  disabled={freezeLoading}
+                  onClick={() => setShowFreezeModal(true)}
+                  className="px-5 py-2.5 rounded font-mono text-xs font-bold bg-[var(--status-critical)] text-white hover:bg-[var(--status-critical)]/80 transition-all flex items-center gap-2 shadow-[0_0_20px_rgba(255,51,102,0.3)]"
+                >
+                  <PauseCircle size={16} />
+                  <span>ENACT GLOBAL FREEZE</span>
+                </button>
+              )
+            ) : (
+              <div className="p-2.5 rounded bg-white/5 border border-white/10 text-right">
+                <span className="text-[11px] font-mono text-[var(--status-warning)] block font-bold">
+                  Restricted to Primary Admin
+                </span>
+                <span className="text-[10px] font-mono text-[var(--text-dim)]">
+                  Event admins cannot modify freeze status
+                </span>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {stages.map((stage) => (
-          <div 
-            key={stage.id} 
-            className={`cyber-card p-6 border-t-4 flex flex-col justify-between ${
-              stage.status === 'OPEN' 
-                ? 'border-t-[#00ffa3]' 
-                : stage.status === 'CLOSED'
-                ? 'border-t-[#ff3366]' 
-                : 'border-t-[#ffb703]'
-            }`}
-          >
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <span className="font-mono text-xs text-[var(--text-dim)] uppercase">
-                  Stage 0{stage.order}
-                </span>
-                <span className={`cyber-badge ${
-                  stage.status === 'OPEN' 
-                    ? 'cyber-badge-success' 
-                    : stage.status === 'CLOSED'
-                    ? 'cyber-badge-critical' 
-                    : 'cyber-badge-warning'
-                }`}>
-                  {stage.status}
-                </span>
-              </div>
+      {/* Freeze Reason Modal */}
+      {showFreezeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm">
+          <div className="relative w-full max-w-md p-6 rounded-lg border-2 border-[var(--status-critical)] bg-[rgba(10,14,23,0.98)] shadow-[0_0_40px_rgba(255,51,102,0.3)]">
+            <button
+              onClick={() => setShowFreezeModal(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-white"
+            >
+              <X size={18} />
+            </button>
 
-              <h3 className="text-base font-bold font-mono text-white mb-2">
-                {stage.name}
+            <div className="flex items-center gap-2 text-[var(--status-critical)] mb-2">
+              <AlertTriangle size={22} />
+              <h3 className="text-base font-bold font-mono text-white">
+                Enact Global Competition Freeze
               </h3>
-
-              <p className="text-xs text-[var(--text-secondary)] leading-relaxed mb-4">
-                {stage.description}
-              </p>
-
-              <div className="space-y-2 mb-4 p-3 rounded bg-black/40 border border-white/5 text-[11px] font-mono">
-                <div className="flex justify-between text-gray-300">
-                  <span className="text-[var(--text-dim)]">Max Score:</span>
-                  <span className="font-bold text-[var(--cyan-primary)]">{stage.maxScore || 10} pts</span>
-                </div>
-                {stage.evaluationCriteria && stage.evaluationCriteria.length > 0 && (
-                  <div>
-                    <span className="text-[var(--text-dim)] block mb-1">Criteria ({stage.evaluationCriteria.length}):</span>
-                    <div className="flex flex-wrap gap-1">
-                      {stage.evaluationCriteria.slice(0, 2).map((c, i) => (
-                        <span key={i} className="text-[9px] px-1.5 py-0.5 rounded bg-white/5 text-gray-300">
-                          {c}
-                        </span>
-                      ))}
-                      {stage.evaluationCriteria.length > 2 && (
-                        <span className="text-[9px] text-[var(--text-dim)]">+{stage.evaluationCriteria.length - 2} more</span>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
             </div>
 
-            <div>
-              <div className="pt-3 border-t border-[rgba(255,255,255,0.08)] flex items-center gap-2 mb-3">
-                <button
-                  onClick={() => onUpdateStatus(stage.id, 'LOCKED')}
-                  className={`flex-1 text-[11px] font-mono py-1.5 rounded border transition-all ${
-                    stage.status === 'LOCKED'
-                      ? 'bg-[var(--status-warning-bg)] border-[var(--status-warning)] text-[var(--status-warning)] font-bold'
-                      : 'border-[rgba(255,255,255,0.1)] text-[var(--text-dim)] hover:text-white'
-                  }`}
-                >
-                  LOCK
-                </button>
+            <p className="text-xs text-[var(--text-secondary)] font-mono mb-4 leading-relaxed">
+              This will immediately pause all participant mutation endpoints across the entire platform.
+              Teams will not be able to submit quiz answers, stage answers, or select datasets/problems until you lift the freeze.
+            </p>
 
-                <button
-                  onClick={() => onUpdateStatus(stage.id, 'OPEN')}
-                  className={`flex-1 text-[11px] font-mono py-1.5 rounded border transition-all ${
-                    stage.status === 'OPEN'
-                      ? 'bg-[var(--status-success-bg)] border-[var(--status-success)] text-[var(--status-success)] font-bold'
-                      : 'border-[rgba(255,255,255,0.1)] text-[var(--text-dim)] hover:text-white'
-                  }`}
-                >
-                  OPEN
-                </button>
+            <div className="mb-4">
+              <label className="block text-xs font-mono text-gray-300 mb-1">
+                Freeze Announcement Reason (Optional):
+              </label>
+              <input
+                type="text"
+                value={freezeReasonInput}
+                onChange={e => setFreezeReasonInput(e.target.value)}
+                placeholder="e.g. Scheduled technical break / Network maintenance..."
+                className="w-full px-3 py-2 text-xs font-mono bg-black/50 border border-white/20 rounded text-white focus:border-[var(--status-critical)] outline-none"
+              />
+            </div>
 
-                <button
-                  onClick={() => onUpdateStatus(stage.id, 'CLOSED')}
-                  className={`flex-1 text-[11px] font-mono py-1.5 rounded border transition-all ${
-                    stage.status === 'CLOSED'
-                      ? 'bg-[var(--status-critical-bg)] border-[var(--status-critical)] text-[var(--status-critical)] font-bold'
-                      : 'border-[rgba(255,255,255,0.1)] text-[var(--text-dim)] hover:text-white'
-                  }`}
-                >
-                  CLOSE
-                </button>
-              </div>
-
+            <div className="flex justify-end gap-3">
               <button
-                onClick={() => handleOpenEdit(stage)}
-                className="w-full py-1.5 rounded text-[11px] font-mono border border-[var(--cyan-primary)]/40 text-[var(--cyan-primary)] hover:bg-[var(--cyan-primary)]/10 flex items-center justify-center gap-1.5"
+                type="button"
+                onClick={() => setShowFreezeModal(false)}
+                className="px-4 py-2 text-xs font-mono text-gray-400 hover:text-white"
               >
-                <Settings2 size={12} />
-                <span>Configure Rules & Criteria</span>
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={freezeLoading}
+                onClick={() => handleToggleFreeze(true, freezeReasonInput)}
+                className="px-4 py-2 text-xs font-mono font-bold bg-[var(--status-critical)] text-white rounded hover:bg-[var(--status-critical)]/80 flex items-center gap-1.5"
+              >
+                <PauseCircle size={14} />
+                <span>{freezeLoading ? 'Enacting...' : 'Confirm Global Freeze'}</span>
               </button>
             </div>
           </div>
-        ))}
+        </div>
+      )}
+
+      {/* Unfreeze Confirmation Modal */}
+      {showUnfreezeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm">
+          <div className="relative w-full max-w-md p-6 rounded-lg border-2 border-[#00ffa3] bg-[rgba(10,14,23,0.98)] shadow-[0_0_40px_rgba(0,255,163,0.3)]">
+            <button
+              onClick={() => setShowUnfreezeModal(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-white"
+            >
+              <X size={18} />
+            </button>
+
+            <div className="flex items-center gap-2 text-[#00ffa3] mb-2">
+              <PlayCircle size={22} />
+              <h3 className="text-base font-bold font-mono text-white">
+                Lift Global Competition Freeze
+              </h3>
+            </div>
+
+            <p className="text-xs text-[var(--text-secondary)] font-mono mb-4 leading-relaxed">
+              Confirming this action will immediately reopen live submissions and operations across all stages.
+              Participants will be able to resume quiz submissions, decoding attempts, and dataset selections.
+            </p>
+
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowUnfreezeModal(false)}
+                className="px-4 py-2 text-xs font-mono text-gray-400 hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={freezeLoading}
+                onClick={async () => {
+                  setShowUnfreezeModal(false);
+                  await handleToggleFreeze(false);
+                }}
+                className="px-4 py-2 text-xs font-mono font-bold bg-[#00ffa3] text-black rounded hover:bg-[#00ffa3]/80 flex items-center gap-1.5 shadow-[0_0_15px_rgba(0,255,163,0.3)]"
+              >
+                <PlayCircle size={14} />
+                <span>{freezeLoading ? 'Lifting...' : 'Confirm Lift Freeze'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Stage Gates Section */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-xl font-bold font-mono text-white flex items-center gap-2">
+              <Sliders size={20} className="text-[var(--cyan-primary)]" />
+              Global Stage Gates & Operational Criteria
+            </h2>
+            <p className="text-xs font-mono text-[var(--text-dim)] mt-0.5">
+              Configure individual stage access status, maximum scores, evaluation criteria, and requirements.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {stages.map((stage) => (
+            <div
+              key={stage.id}
+              className={`cyber-card p-6 border-t-4 flex flex-col justify-between ${
+                stage.status === 'OPEN'
+                  ? 'border-t-[#00ffa3]'
+                  : stage.status === 'CLOSED'
+                  ? 'border-t-[#ff3366]'
+                  : 'border-t-[#ffb703]'
+              }`}
+            >
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="font-mono text-xs text-[var(--text-dim)] uppercase">
+                    Stage 0{stage.order}
+                  </span>
+                  <span className={`cyber-badge ${
+                    stage.status === 'OPEN'
+                      ? 'cyber-badge-success'
+                      : stage.status === 'CLOSED'
+                      ? 'cyber-badge-critical'
+                      : 'cyber-badge-warning'
+                  }`}>
+                    {stage.status}
+                  </span>
+                </div>
+
+                <h3 className="text-base font-bold font-mono text-white mb-2">
+                  {stage.name}
+                </h3>
+
+                <p className="text-xs text-[var(--text-secondary)] leading-relaxed mb-4">
+                  {stage.description}
+                </p>
+
+                <div className="space-y-2 mb-4 p-3 rounded bg-black/40 border border-white/5 text-[11px] font-mono">
+                  <div className="flex justify-between text-gray-300">
+                    <span className="text-[var(--text-dim)]">Max Score:</span>
+                    <span className="font-bold text-[var(--cyan-primary)]">{stage.maxScore || 10} pts</span>
+                  </div>
+                  {stage.evaluationCriteria && stage.evaluationCriteria.length > 0 && (
+                    <div>
+                      <span className="text-[var(--text-dim)] block mb-1">Criteria ({stage.evaluationCriteria.length}):</span>
+                      <div className="flex flex-wrap gap-1">
+                        {stage.evaluationCriteria.slice(0, 2).map((c, i) => (
+                          <span key={i} className="text-[9px] px-1.5 py-0.5 rounded bg-white/5 text-gray-300">
+                            {c}
+                          </span>
+                        ))}
+                        {stage.evaluationCriteria.length > 2 && (
+                          <span className="text-[9px] text-[var(--text-dim)]">+{stage.evaluationCriteria.length - 2} more</span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <div className="pt-3 border-t border-[rgba(255,255,255,0.08)] flex items-center gap-2 mb-3">
+                  <button
+                    onClick={() => onUpdateStatus(stage.id, 'LOCKED')}
+                    className={`flex-1 text-[11px] font-mono py-1.5 rounded border transition-all ${
+                      stage.status === 'LOCKED'
+                        ? 'bg-[var(--status-warning-bg)] border-[var(--status-warning)] text-[var(--status-warning)] font-bold'
+                        : 'border-[rgba(255,255,255,0.1)] text-[var(--text-dim)] hover:text-white'
+                    }`}
+                  >
+                    LOCK
+                  </button>
+
+                  <button
+                    onClick={() => onUpdateStatus(stage.id, 'OPEN')}
+                    className={`flex-1 text-[11px] font-mono py-1.5 rounded border transition-all ${
+                      stage.status === 'OPEN'
+                        ? 'bg-[var(--status-success-bg)] border-[var(--status-success)] text-[var(--status-success)] font-bold'
+                        : 'border-[rgba(255,255,255,0.1)] text-[var(--text-dim)] hover:text-white'
+                    }`}
+                  >
+                    OPEN
+                  </button>
+
+                  <button
+                    onClick={() => onUpdateStatus(stage.id, 'CLOSED')}
+                    className={`flex-1 text-[11px] font-mono py-1.5 rounded border transition-all ${
+                      stage.status === 'CLOSED'
+                        ? 'bg-[var(--status-critical-bg)] border-[var(--status-critical)] text-[var(--status-critical)] font-bold'
+                        : 'border-[rgba(255,255,255,0.1)] text-[var(--text-dim)] hover:text-white'
+                    }`}
+                  >
+                    CLOSE
+                  </button>
+                </div>
+
+                <button
+                  onClick={() => handleOpenEdit(stage)}
+                  className="w-full py-1.5 rounded text-[11px] font-mono border border-[var(--cyan-primary)]/40 text-[var(--cyan-primary)] hover:bg-[var(--cyan-primary)]/10 flex items-center justify-center gap-1.5"
+                >
+                  <Settings2 size={12} />
+                  <span>Configure Rules & Criteria</span>
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Edit Stage Configuration Modal */}

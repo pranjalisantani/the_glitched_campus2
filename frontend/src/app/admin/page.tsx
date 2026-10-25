@@ -4,14 +4,14 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../context/AuthContext';
 import { apiFetch } from '../../lib/api';
-import { 
-  Terminal, 
-  Users, 
-  Sliders, 
-  CheckCircle2, 
-  RefreshCw, 
-  Plus, 
-  Trash2, 
+import {
+  Terminal,
+  Users,
+  Sliders,
+  CheckCircle2,
+  RefreshCw,
+  Plus,
+  Trash2,
   Database,
   Layout,
   HelpCircle,
@@ -61,6 +61,14 @@ export default function AdminPage() {
   const [newQExplanation, setNewQExplanation] = useState('');
   const [newQPoints, setNewQPoints] = useState(1);
 
+  // Edit question state
+  const [editingQuestion, setEditingQuestion] = useState<any | null>(null);
+  const [editQPrompt, setEditQPrompt] = useState('');
+  const [editQOptions, setEditQOptions] = useState(['', '', '', '']);
+  const [editQCorrect, setEditQCorrect] = useState('A');
+  const [editQExplanation, setEditQExplanation] = useState('');
+  const [editQPoints, setEditQPoints] = useState(1);
+
   const [showNewChModal, setShowNewChModal] = useState(false);
   const [newChTitle, setNewChTitle] = useState('');
   const [newChDesc, setNewChDesc] = useState('');
@@ -68,6 +76,15 @@ export default function AdminPage() {
   const [newChAnswer, setNewChAnswer] = useState('');
   const [newChHint, setNewChHint] = useState('');
   const [newChPoints, setNewChPoints] = useState(10);
+
+  // Edit challenge state
+  const [editingChallenge, setEditingChallenge] = useState<any | null>(null);
+  const [editChTitle, setEditChTitle] = useState('');
+  const [editChDesc, setEditChDesc] = useState('');
+  const [editChPayload, setEditChPayload] = useState('');
+  const [editChAnswer, setEditChAnswer] = useState('');
+  const [editChHint, setEditChHint] = useState('');
+  const [editChPoints, setEditChPoints] = useState(10);
 
   // Score override modal
   const [overrideModal, setOverrideModal] = useState<{
@@ -88,6 +105,30 @@ export default function AdminPage() {
   const [uploadRecords, setUploadRecords] = useState(0);
   const [uploadSchema, setUploadSchema] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+
+  // Dataset edit modal
+  const [editingDataset, setEditingDataset] = useState<any | null>(null);
+  const [editDsName, setEditDsName] = useState('');
+  const [editDsDesc, setEditDsDesc] = useState('');
+  const [editDsRecordCount, setEditDsRecordCount] = useState(0);
+  const [editDsSchemaSummary, setEditDsSchemaSummary] = useState('');
+
+  // Problem statement modals
+  const [showNewProbModal, setShowNewProbModal] = useState(false);
+  const [newProbTitle, setNewProbTitle] = useState('');
+  const [newProbCategory, setNewProbCategory] = useState('Incident Containment');
+  const [newProbSummary, setNewProbSummary] = useState('');
+  const [newProbDesc, setNewProbDesc] = useState('');
+  const [newProbStage4Instr, setNewProbStage4Instr] = useState('');
+  const [newProbStage5Instr, setNewProbStage5Instr] = useState('');
+
+  const [editingProblem, setEditingProblem] = useState<any | null>(null);
+  const [editProbTitle, setEditProbTitle] = useState('');
+  const [editProbCategory, setEditProbCategory] = useState('');
+  const [editProbSummary, setEditProbSummary] = useState('');
+  const [editProbDesc, setEditProbDesc] = useState('');
+  const [editProbStage4Instr, setEditProbStage4Instr] = useState('');
+  const [editProbStage5Instr, setEditProbStage5Instr] = useState('');
 
   const isPrimary = user?.isPrimaryAdmin || user?.adminRole === 'primary_admin';
 
@@ -229,6 +270,34 @@ export default function AdminPage() {
     }
   };
 
+  const handleUpdateQuestion = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingQuestion) return;
+    try {
+      await apiFetch('/admin/stage1/questions/' + editingQuestion.id, {
+        method: 'PUT',
+        body: {
+          prompt: editQPrompt,
+          options: [
+            { id: 'A', text: editQOptions[0] },
+            { id: 'B', text: editQOptions[1] },
+            { id: 'C', text: editQOptions[2] },
+            { id: 'D', text: editQOptions[3] }
+          ],
+          correctOptionId: editQCorrect,
+          explanation: editQExplanation,
+          points: Number(editQPoints) || 1,
+          isActiveForLiveQuiz: true
+        }
+      });
+      setEditingQuestion(null);
+      loadAdminData();
+      showNotification('Quiz question updated successfully.');
+    } catch (err: any) {
+      alert(err.message || 'Failed to update question.');
+    }
+  };
+
   // Stage 2 Challenge Creation
   const handleCreateChallenge = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -266,6 +335,30 @@ export default function AdminPage() {
       showNotification('Challenge removed.');
     } catch (err: any) {
       alert(err.message || 'Failed to delete challenge.');
+    }
+  };
+
+  const handleUpdateChallenge = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingChallenge) return;
+    try {
+      await apiFetch('/admin/stage2/challenges/' + editingChallenge.id, {
+        method: 'PUT',
+        body: {
+          title: editChTitle,
+          description: editChDesc,
+          encodedPayload: editChPayload,
+          expectedAnswer: editChAnswer,
+          hint: editChHint,
+          points: Number(editChPoints) || 10,
+          isActive: true
+        }
+      });
+      setEditingChallenge(null);
+      loadAdminData();
+      showNotification('Decode challenge updated successfully.');
+    } catch (err: any) {
+      alert(err.message || 'Failed to update challenge.');
     }
   };
 
@@ -402,6 +495,77 @@ export default function AdminPage() {
     }
   };
 
+  const handleUpdateDataset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingDataset) return;
+    try {
+      await apiFetch('/admin/stage3/datasets/' + editingDataset.id, {
+        method: 'PUT',
+        body: {
+          name: editDsName.trim(),
+          description: editDsDesc.trim(),
+          recordCount: Number(editDsRecordCount) || 0,
+          schemaSummary: editDsSchemaSummary.trim()
+        }
+      });
+      setEditingDataset(null);
+      loadAdminData();
+      showNotification('Dataset metadata updated successfully.');
+    } catch (err: any) {
+      alert(err.message || 'Failed to update dataset.');
+    }
+  };
+
+  const handleCreateProblem = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await apiFetch('/admin/stage4/problems', {
+        method: 'POST',
+        body: {
+          title: newProbTitle.trim(),
+          category: newProbCategory.trim(),
+          summary: newProbSummary.trim(),
+          fullDescription: newProbDesc.trim(),
+          stage4Instructions: newProbStage4Instr.trim(),
+          stage5Instructions: newProbStage5Instr.trim()
+        }
+      });
+      setShowNewProbModal(false);
+      setNewProbTitle('');
+      setNewProbSummary('');
+      setNewProbDesc('');
+      setNewProbStage4Instr('');
+      setNewProbStage5Instr('');
+      loadAdminData();
+      showNotification('Problem statement created successfully.');
+    } catch (err: any) {
+      alert(err.message || 'Failed to create problem statement.');
+    }
+  };
+
+  const handleUpdateProblem = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingProblem) return;
+    try {
+      await apiFetch('/admin/stage4/problems/' + editingProblem.id, {
+        method: 'PUT',
+        body: {
+          title: editProbTitle.trim(),
+          category: editProbCategory.trim(),
+          summary: editProbSummary.trim(),
+          fullDescription: editProbDesc.trim(),
+          stage4Instructions: editProbStage4Instr.trim(),
+          stage5Instructions: editProbStage5Instr.trim()
+        }
+      });
+      setEditingProblem(null);
+      loadAdminData();
+      showNotification('Problem statement updated successfully.');
+    } catch (err: any) {
+      alert(err.message || 'Failed to update problem statement.');
+    }
+  };
+
   return (
     <div className="min-h-screen py-10 px-4 max-w-7xl mx-auto">
       {/* Header bar */}
@@ -431,7 +595,7 @@ export default function AdminPage() {
       </div>
 
       {actionNotice && (
-        <div 
+        <div
           role="status"
           className="mb-6 p-4 rounded bg-[rgba(0,255,163,0.12)] border border-[rgba(0,255,163,0.4)] flex items-center gap-2 text-xs font-mono text-[#00ffa3]"
         >
@@ -532,6 +696,7 @@ export default function AdminPage() {
           onUpdateStatus={handleUpdateStageStatus}
           onRefresh={loadAdminData}
           onNotice={showNotification}
+          isPrimaryAdmin={Boolean(isPrimary)}
         />
       )}
 
@@ -673,9 +838,36 @@ export default function AdminPage() {
                     </div>
                   )}
                 </div>
-                <button onClick={() => handleDeleteQuestion(q.id)} className="text-[var(--text-dim)] hover:text-red-400 ml-4 p-1">
-                  <Trash2 size={16} />
-                </button>
+                <div className="flex items-center gap-2 ml-4 shrink-0 font-mono text-xs">
+                  <button
+                    onClick={() => {
+                      setEditingQuestion(q);
+                      setEditQPrompt(q.prompt);
+                      setEditQOptions([
+                        q.options?.find((o: any) => o.id === 'A')?.text || '',
+                        q.options?.find((o: any) => o.id === 'B')?.text || '',
+                        q.options?.find((o: any) => o.id === 'C')?.text || '',
+                        q.options?.find((o: any) => o.id === 'D')?.text || ''
+                      ]);
+                      setEditQCorrect(q.correctOptionId || 'A');
+                      setEditQExplanation(q.explanation || '');
+                      setEditQPoints(q.points || 1);
+                    }}
+                    title="Edit Quiz Question"
+                    className="px-2.5 py-1 rounded border border-[rgba(0,245,255,0.35)] text-[var(--cyan-primary)] hover:bg-[rgba(0,245,255,0.12)] flex items-center gap-1 transition-colors"
+                  >
+                    <Edit size={13} />
+                    <span>Edit</span>
+                  </button>
+                  <button
+                    onClick={() => handleDeleteQuestion(q.id)}
+                    title="Delete Question"
+                    className="px-2.5 py-1 rounded border border-red-500/30 text-red-400 hover:bg-red-500/10 flex items-center gap-1 transition-colors"
+                  >
+                    <Trash2 size={13} />
+                    <span>Delete</span>
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -748,16 +940,39 @@ export default function AdminPage() {
           <div className="space-y-3">
             <h3 className="text-base font-bold font-mono text-white">Configured Decode Challenges ({stage2Challenges.length})</h3>
             {stage2Challenges.map((ch) => (
-              <div key={ch.id} className="cyber-card p-4 border-[rgba(168,85,247,0.25)] flex justify-between">
+              <div key={ch.id} className="cyber-card p-4 border-[rgba(168,85,247,0.25)] flex justify-between items-start">
                 <div>
                   <h4 className="font-mono font-bold text-sm text-white">{ch.title}</h4>
                   <p className="text-xs text-[var(--text-secondary)] mt-1">{ch.description}</p>
                   <div className="text-xs font-mono text-[var(--cyan-primary)] mt-2">Payload: <code className="bg-black/40 px-1.5 py-0.5 rounded">{ch.encodedPayload}</code></div>
                   <div className="text-xs font-mono text-[#00ffa3] mt-1">Answer Key: <strong>{ch.expectedAnswer}</strong> | Hint: <em>{ch.hint}</em></div>
                 </div>
-                <button onClick={() => handleDeleteChallenge(ch.id)} className="text-[var(--text-dim)] hover:text-red-400 p-1">
-                  <Trash2 size={16} />
-                </button>
+                <div className="flex items-center gap-2 ml-4 shrink-0 font-mono text-xs">
+                  <button
+                    onClick={() => {
+                      setEditingChallenge(ch);
+                      setEditChTitle(ch.title);
+                      setEditChDesc(ch.description);
+                      setEditChPayload(ch.encodedPayload);
+                      setEditChAnswer(ch.expectedAnswer);
+                      setEditChHint(ch.hint);
+                      setEditChPoints(ch.points || 10);
+                    }}
+                    title="Edit Challenge"
+                    className="px-2.5 py-1 rounded border border-[rgba(168,85,247,0.35)] text-[var(--violet-primary)] hover:bg-[rgba(168,85,247,0.12)] flex items-center gap-1 transition-colors"
+                  >
+                    <Edit size={13} />
+                    <span>Edit</span>
+                  </button>
+                  <button
+                    onClick={() => handleDeleteChallenge(ch.id)}
+                    title="Delete Challenge"
+                    className="px-2.5 py-1 rounded border border-red-500/30 text-red-400 hover:bg-red-500/10 flex items-center gap-1 transition-colors"
+                  >
+                    <Trash2 size={13} />
+                    <span>Delete</span>
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -784,12 +999,30 @@ export default function AdminPage() {
                 <div>
                   <div className="flex justify-between items-start mb-2">
                     <span className="cyber-badge cyber-badge-success">{ds.format}</span>
-                    <button
-                      onClick={() => handleDeleteDataset(ds.id, ds.name)}
-                      className="text-[var(--text-dim)] hover:text-red-400 p-1"
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                    <div className="flex items-center gap-2 font-mono text-xs">
+                      <button
+                        onClick={() => {
+                          setEditingDataset(ds);
+                          setEditDsName(ds.name);
+                          setEditDsDesc(ds.description || '');
+                          setEditDsRecordCount(ds.recordCount || 0);
+                          setEditDsSchemaSummary(ds.schemaSummary || '');
+                        }}
+                        title="Edit Dataset Metadata"
+                        className="px-2.5 py-1 rounded border border-[#00ffa3]/30 text-[#00ffa3] hover:bg-[#00ffa3]/10 flex items-center gap-1 transition-colors"
+                      >
+                        <Edit size={13} />
+                        <span>Edit</span>
+                      </button>
+                      <button
+                        onClick={() => handleDeleteDataset(ds.id, ds.name)}
+                        title="Delete Dataset"
+                        className="px-2.5 py-1 rounded border border-red-500/30 text-red-400 hover:bg-red-500/10 flex items-center gap-1 transition-colors"
+                      >
+                        <Trash2 size={13} />
+                        <span>Delete</span>
+                      </button>
+                    </div>
                   </div>
                   <h3 className="text-base font-bold font-mono text-white">{ds.name}</h3>
                   <p className="text-xs text-[var(--text-secondary)] mt-1">{ds.description}</p>
@@ -812,6 +1045,21 @@ export default function AdminPage() {
               <h2 className="text-xl font-bold font-mono text-white">Stage 4 & 5: Problem Statements & Criteria ({problems.length})</h2>
               <p className="text-xs font-mono text-[var(--text-dim)]">Manage challenges that carry through from Stage 4 Prototype to Stage 5 Dynamic Defense.</p>
             </div>
+            <button
+              onClick={() => {
+                setNewProbTitle('');
+                setNewProbCategory('Incident Forensics');
+                setNewProbSummary('');
+                setNewProbDesc('');
+                setNewProbStage4Instr('');
+                setNewProbStage5Instr('');
+                setShowNewProbModal(true);
+              }}
+              className="cyber-button text-xs py-2 px-4 flex items-center gap-1.5"
+            >
+              <Plus size={14} />
+              <span>Add Problem Statement</span>
+            </button>
           </div>
 
           <div className="space-y-4">
@@ -825,12 +1073,32 @@ export default function AdminPage() {
                     Stage 4 Prototype instructions & Stage 5 Dynamic specs linked directly.
                   </div>
                 </div>
-                <button
-                  onClick={() => handleDeleteProblem(p.id, p.title)}
-                  className="text-[var(--text-dim)] hover:text-red-400 p-1 ml-4"
-                >
-                  <Trash2 size={16} />
-                </button>
+                <div className="flex items-center gap-2 ml-4 shrink-0 font-mono text-xs">
+                  <button
+                    onClick={() => {
+                      setEditingProblem(p);
+                      setEditProbTitle(p.title);
+                      setEditProbCategory(p.category);
+                      setEditProbSummary(p.summary || '');
+                      setEditProbDesc(p.fullDescription);
+                      setEditProbStage4Instr(p.stage4Instructions || '');
+                      setEditProbStage5Instr(p.stage5Instructions || '');
+                    }}
+                    title="Edit Problem Statement"
+                    className="px-2.5 py-1 rounded border border-yellow-500/35 text-yellow-400 hover:bg-yellow-500/12 flex items-center gap-1 transition-colors"
+                  >
+                    <Edit size={13} />
+                    <span>Edit</span>
+                  </button>
+                  <button
+                    onClick={() => handleDeleteProblem(p.id, p.title)}
+                    title="Delete Problem Statement"
+                    className="px-2.5 py-1 rounded border border-red-500/30 text-red-400 hover:bg-red-500/10 flex items-center gap-1 transition-colors"
+                  >
+                    <Trash2 size={13} />
+                    <span>Delete</span>
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -1062,6 +1330,195 @@ export default function AdminPage() {
                 >
                   {isUploading ? 'Uploading...' : 'Save & Register Dataset'}
                 </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Quiz Question Modal */}
+      {editingQuestion && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="w-full max-w-lg cyber-card p-6 border-[var(--cyan-primary)] max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-bold font-mono text-white mb-4">Edit Quiz Question</h3>
+            <form onSubmit={handleUpdateQuestion} className="space-y-3 font-mono text-xs">
+              <div>
+                <label className="block text-[var(--text-secondary)] mb-1">PROMPT</label>
+                <input required value={editQPrompt} onChange={e => setEditQPrompt(e.target.value)} className="cyber-input w-full" />
+              </div>
+              {['A', 'B', 'C', 'D'].map((opt, i) => (
+                <div key={opt}>
+                  <label className="block text-[var(--text-secondary)] mb-1">OPTION {opt}</label>
+                  <input required value={editQOptions[i]} onChange={e => { const up = [...editQOptions]; up[i] = e.target.value; setEditQOptions(up); }} className="cyber-input w-full" />
+                </div>
+              ))}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[var(--text-secondary)] mb-1">CORRECT OPTION</label>
+                  <select value={editQCorrect} onChange={e => setEditQCorrect(e.target.value)} className="cyber-input w-full">
+                    <option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[var(--text-secondary)] mb-1">POINTS</label>
+                  <input type="number" min={1} max={10} value={editQPoints} onChange={e => setEditQPoints(Number(e.target.value))} className="cyber-input w-full" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-[var(--text-secondary)] mb-1">EXPLANATION</label>
+                <textarea rows={2} value={editQExplanation} onChange={e => setEditQExplanation(e.target.value)} className="cyber-input w-full" />
+              </div>
+              <div className="flex gap-2 justify-end pt-2">
+                <button type="button" onClick={() => setEditingQuestion(null)} className="cyber-button-secondary text-xs px-4 py-2">Cancel</button>
+                <button type="submit" className="cyber-button text-xs px-4 py-2">Update Question</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Decode Challenge Modal */}
+      {editingChallenge && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="w-full max-w-lg cyber-card p-6 border-[var(--violet-primary)] max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-bold font-mono text-white mb-4">Edit Decode Challenge</h3>
+            <form onSubmit={handleUpdateChallenge} className="space-y-3 font-mono text-xs">
+              <div>
+                <label className="block text-[var(--text-secondary)] mb-1">TITLE</label>
+                <input required value={editChTitle} onChange={e => setEditChTitle(e.target.value)} className="cyber-input w-full" />
+              </div>
+              <div>
+                <label className="block text-[var(--text-secondary)] mb-1">DESCRIPTION</label>
+                <input required value={editChDesc} onChange={e => setEditChDesc(e.target.value)} className="cyber-input w-full" />
+              </div>
+              <div>
+                <label className="block text-[var(--text-secondary)] mb-1">ENCODED PAYLOAD</label>
+                <input required value={editChPayload} onChange={e => setEditChPayload(e.target.value)} className="cyber-input w-full" />
+              </div>
+              <div>
+                <label className="block text-[var(--text-secondary)] mb-1">EXPECTED ANSWER</label>
+                <input required value={editChAnswer} onChange={e => setEditChAnswer(e.target.value)} className="cyber-input w-full" />
+              </div>
+              <div>
+                <label className="block text-[var(--text-secondary)] mb-1">HINT</label>
+                <input required value={editChHint} onChange={e => setEditChHint(e.target.value)} className="cyber-input w-full" />
+              </div>
+              <div>
+                <label className="block text-[var(--text-secondary)] mb-1">BASE POINTS</label>
+                <input type="number" min={1} max={50} value={editChPoints} onChange={e => setEditChPoints(Number(e.target.value))} className="cyber-input w-full" />
+              </div>
+              <div className="flex gap-2 justify-end pt-2">
+                <button type="button" onClick={() => setEditingChallenge(null)} className="cyber-button-secondary text-xs px-4 py-2">Cancel</button>
+                <button type="submit" className="cyber-button text-xs px-4 py-2">Update Challenge</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Dataset Metadata Modal */}
+      {editingDataset && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="w-full max-w-lg cyber-card p-6 border-[#00ffa3] max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-bold font-mono text-white mb-4">Edit Dataset Metadata: {editingDataset.filename}</h3>
+            <form onSubmit={handleUpdateDataset} className="space-y-3 font-mono text-xs">
+              <div>
+                <label className="block text-[var(--text-secondary)] mb-1">DATASET NAME</label>
+                <input required value={editDsName} onChange={e => setEditDsName(e.target.value)} className="cyber-input w-full" />
+              </div>
+              <div>
+                <label className="block text-[var(--text-secondary)] mb-1">DESCRIPTION</label>
+                <textarea rows={2} value={editDsDesc} onChange={e => setEditDsDesc(e.target.value)} className="cyber-input w-full" />
+              </div>
+              <div>
+                <label className="block text-[var(--text-secondary)] mb-1">RECORD COUNT</label>
+                <input type="number" min={0} value={editDsRecordCount} onChange={e => setEditDsRecordCount(Number(e.target.value))} className="cyber-input w-full" />
+              </div>
+              <div>
+                <label className="block text-[var(--text-secondary)] mb-1">SCHEMA SUMMARY</label>
+                <input value={editDsSchemaSummary} onChange={e => setEditDsSchemaSummary(e.target.value)} className="cyber-input w-full" />
+              </div>
+              <div className="flex gap-2 justify-end pt-2">
+                <button type="button" onClick={() => setEditingDataset(null)} className="cyber-button-secondary text-xs px-4 py-2">Cancel</button>
+                <button type="submit" className="cyber-button text-xs px-4 py-2">Update Metadata</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Problem Statement Modal */}
+      {showNewProbModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="w-full max-w-lg cyber-card p-6 border-[#ffb703] max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-bold font-mono text-white mb-4">Add Problem Statement</h3>
+            <form onSubmit={handleCreateProblem} className="space-y-3 font-mono text-xs">
+              <div>
+                <label className="block text-[var(--text-secondary)] mb-1">TITLE</label>
+                <input required value={newProbTitle} onChange={e => setNewProbTitle(e.target.value)} className="cyber-input w-full" />
+              </div>
+              <div>
+                <label className="block text-[var(--text-secondary)] mb-1">CATEGORY</label>
+                <input required value={newProbCategory} onChange={e => setNewProbCategory(e.target.value)} className="cyber-input w-full" />
+              </div>
+              <div>
+                <label className="block text-[var(--text-secondary)] mb-1">SUMMARY</label>
+                <input value={newProbSummary} onChange={e => setNewProbSummary(e.target.value)} className="cyber-input w-full" />
+              </div>
+              <div>
+                <label className="block text-[var(--text-secondary)] mb-1">FULL DESCRIPTION</label>
+                <textarea required rows={3} value={newProbDesc} onChange={e => setNewProbDesc(e.target.value)} className="cyber-input w-full" />
+              </div>
+              <div>
+                <label className="block text-[var(--text-secondary)] mb-1">STAGE 4 PROTOTYPE INSTRUCTIONS</label>
+                <textarea rows={2} value={newProbStage4Instr} onChange={e => setNewProbStage4Instr(e.target.value)} className="cyber-input w-full" />
+              </div>
+              <div>
+                <label className="block text-[var(--text-secondary)] mb-1">STAGE 5 DYNAMIC DEFENSE INSTRUCTIONS</label>
+                <textarea rows={2} value={newProbStage5Instr} onChange={e => setNewProbStage5Instr(e.target.value)} className="cyber-input w-full" />
+              </div>
+              <div className="flex gap-2 justify-end pt-2">
+                <button type="button" onClick={() => setShowNewProbModal(false)} className="cyber-button-secondary text-xs px-4 py-2">Cancel</button>
+                <button type="submit" className="cyber-button text-xs px-4 py-2">Save Problem</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Problem Statement Modal */}
+      {editingProblem && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="w-full max-w-lg cyber-card p-6 border-[#ffb703] max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-bold font-mono text-white mb-4">Edit Problem Statement</h3>
+            <form onSubmit={handleUpdateProblem} className="space-y-3 font-mono text-xs">
+              <div>
+                <label className="block text-[var(--text-secondary)] mb-1">TITLE</label>
+                <input required value={editProbTitle} onChange={e => setEditProbTitle(e.target.value)} className="cyber-input w-full" />
+              </div>
+              <div>
+                <label className="block text-[var(--text-secondary)] mb-1">CATEGORY</label>
+                <input required value={editProbCategory} onChange={e => setEditProbCategory(e.target.value)} className="cyber-input w-full" />
+              </div>
+              <div>
+                <label className="block text-[var(--text-secondary)] mb-1">SUMMARY</label>
+                <input value={editProbSummary} onChange={e => setEditProbSummary(e.target.value)} className="cyber-input w-full" />
+              </div>
+              <div>
+                <label className="block text-[var(--text-secondary)] mb-1">FULL DESCRIPTION</label>
+                <textarea required rows={3} value={editProbDesc} onChange={e => setEditProbDesc(e.target.value)} className="cyber-input w-full" />
+              </div>
+              <div>
+                <label className="block text-[var(--text-secondary)] mb-1">STAGE 4 PROTOTYPE INSTRUCTIONS</label>
+                <textarea rows={2} value={editProbStage4Instr} onChange={e => setEditProbStage4Instr(e.target.value)} className="cyber-input w-full" />
+              </div>
+              <div>
+                <label className="block text-[var(--text-secondary)] mb-1">STAGE 5 DYNAMIC DEFENSE INSTRUCTIONS</label>
+                <textarea rows={2} value={editProbStage5Instr} onChange={e => setEditProbStage5Instr(e.target.value)} className="cyber-input w-full" />
+              </div>
+              <div className="flex gap-2 justify-end pt-2">
+                <button type="button" onClick={() => setEditingProblem(null)} className="cyber-button-secondary text-xs px-4 py-2">Cancel</button>
+                <button type="submit" className="cyber-button text-xs px-4 py-2">Update Problem</button>
               </div>
             </form>
           </div>

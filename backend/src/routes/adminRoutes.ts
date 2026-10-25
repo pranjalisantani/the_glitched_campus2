@@ -294,6 +294,54 @@ router.patch('/stages/:stageId', requirePermission('manage_stages'), async (req:
 });
 
 /* ==========================================================================
+   GLOBAL COMPETITION FREEZE (PRIMARY ADMIN ONLY)
+   ========================================================================== */
+
+// Get competition freeze status
+router.get('/freeze', async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const settings = await store.getSystemSettings();
+    res.json(settings);
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to retrieve system settings.', details: err.message });
+  }
+});
+
+// Toggle competition freeze (Strictly Primary Administrator clearance required)
+router.post('/freeze', requirePrimaryAdmin, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const { isFrozen, reason } = req.body;
+    if (typeof isFrozen !== 'boolean') {
+      res.status(400).json({ error: 'Field "isFrozen" must be a boolean (true to freeze, false to unfreeze).' });
+      return;
+    }
+
+    const updated = await store.setCompetitionFreeze(
+      isFrozen,
+      reason ? String(reason).trim() : undefined,
+      req.user?.email
+    );
+
+    await logAudit(
+      req,
+      isFrozen ? 'competition.freeze' : 'competition.unfreeze',
+      'system_settings',
+      'global',
+      { isFrozen, reason: updated.freezeReason, frozenAt: updated.frozenAt }
+    );
+
+    res.json({
+      message: isFrozen
+        ? 'Competition successfully frozen. All participant mutations and submissions are paused.'
+        : 'Competition freeze lifted. Normal operations restored.',
+      settings: updated
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to update competition freeze state.', details: err.message });
+  }
+});
+
+/* ==========================================================================
    PARTICIPANT MANAGEMENT (Permission: manage_teams)
    ========================================================================== */
 
