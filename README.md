@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # THE GLITCHED CAMPUS
 
 > **A five-stage collegiate technical security and incident containment competition platform.**
@@ -102,3 +103,6 @@ npm run test:backend
 - **Lockout Enforced**: Stage 2 challenges strictly reject submissions after 3 failed attempts.
 - **Selection Permanence**: Stage 3 and Stage 4 selections are locked on the server and require an explicit administrator reset to alter.
 - **Stage Continuity**: Stage 5 pulls the problem statement directly from the backend to guarantee Stage 4 continuity.
+=======
+# the_glitched_campus2
+>>>>>>> a3d4df2c7775b00c87ed69926ee8bad05986899c
