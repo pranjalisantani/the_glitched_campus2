@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { apiFetch } from '../../lib/api';
+import { apiFetch, getApiBaseUrl } from '../../lib/api';
 import { StageConfig } from './StageControlsTab';
 import { 
   FlaskConical, 
@@ -277,8 +277,7 @@ export function AdminTestModeTab({ stages }: AdminTestModeTabProps) {
 
   const handleStage3Download = async (datasetId: string, filename: string) => {
     if (!session) return;
-    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-    const downloadUrl = `${API_BASE_URL}/admin/test-mode/stage3/datasets/${datasetId}/download`;
+    const downloadUrl = `${getApiBaseUrl()}/admin/test-mode/stage3/datasets/${datasetId}/download`;
 
     try {
       const token = localStorage.getItem('glitched_auth_token');

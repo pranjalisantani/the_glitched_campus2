@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useAuth } from '../../../context/AuthContext';
-import { apiFetch, getAuthToken, API_BASE_URL, getFreezeStatus } from '../../../lib/api';
+import { apiFetch, getAuthToken, getApiBaseUrl, getFreezeStatus } from '../../../lib/api';
 import {
   ArrowLeft,
   Lock,
@@ -131,7 +131,7 @@ export default function Stage3Page() {
 
   const handleDownload = (datasetId: string) => {
     const token = getAuthToken();
-    fetch(`${API_BASE_URL}/stage3/download/${datasetId}`, {
+    fetch(`${getApiBaseUrl()}/stage3/download/${datasetId}`, {
       headers: {
         Authorization: `Bearer ${token}`
       }

@@ -1,4 +1,29 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+/**
+ * Normalizes the API base URL to ensure:
+ * 1. Trailing slashes are stripped.
+ * 2. The `/api` prefix is present without duplication.
+ * 3. Deployed Vercel environments automatically fallback to the production Render backend
+ *    if NEXT_PUBLIC_API_URL was omitted during build, avoiding localhost connection failures.
+ */
+export function getApiBaseUrl(): string {
+  const envUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
+  if (envUrl) {
+    const cleaned = envUrl.replace(/\/+$/, '');
+    return cleaned.endsWith('/api') ? cleaned : `${cleaned}/api`;
+  }
+
+  // Fail-safe browser fallback: when deployed on Vercel and env var wasn't provided at build time
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    if (hostname.includes('vercel.app')) {
+      return 'https://the-glitched-campus2.onrender.com/api';
+    }
+  }
+
+  return 'http://localhost:5000/api';
+}
+
+const API_BASE_URL = getApiBaseUrl();
 
 export function getAuthToken(): string | null {
   if (typeof window === 'undefined') return null;
@@ -54,7 +79,15 @@ export async function apiFetch<T = any>(
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const url = `${API_BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+  const baseUrl = getApiBaseUrl();
+  let cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  if (cleanEndpoint.startsWith('/api/')) {
+    cleanEndpoint = cleanEndpoint.slice(4);
+  } else if (cleanEndpoint === '/api') {
+    cleanEndpoint = '';
+  }
+
+  const url = `${baseUrl}${cleanEndpoint}`;
 
   let attempt = 0;
   while (true) {
@@ -119,7 +152,7 @@ export async function apiFetch<T = any>(
       }
 
       if (err instanceof TypeError || err.message?.includes('fetch')) {
-        const netError = new Error(`Unable to connect to server at ${API_BASE_URL}. Check network connection.`) as any;
+        const netError = new Error(`Unable to connect to server at ${baseUrl}. Check network connection.`) as any;
         netError.status = 0;
         netError.code = 'NETWORK_ERROR';
         throw netError;
