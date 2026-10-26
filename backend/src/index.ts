@@ -29,7 +29,7 @@ app.use(cors({
     ];
 
     const isAllowed = allowedOrigins.includes(origin) ||
-      (normalizedOrigin.includes('vercel.app') && origin.endsWith('.vercel.app'));
+      origin.endsWith('.vercel.app');
 
     if (isAllowed) {
       return callback(null, true);
