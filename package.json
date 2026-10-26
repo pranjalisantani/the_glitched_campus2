@@ -15,7 +15,8 @@
     "lint:frontend": "npm run lint --prefix frontend",
     "lint": "npm run lint:backend && npm run lint:frontend",
     "test:backend": "npm run test --prefix backend",
-    "install:all": "npm install && npm install --prefix backend && npm install --prefix frontend"
+    "install:all": "npm install && npm install --prefix backend && npm install --prefix frontend",
+    "test:supabase": "npm run test:supabase --prefix backend"
   },
   "devDependencies": {
     "concurrently": "^9.2.5"

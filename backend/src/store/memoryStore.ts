@@ -124,6 +124,7 @@ export class DuplicateQuizSubmissionError extends Error {
 }
 
 export class MemoryStore implements IStore {
+  readonly storeType: string = 'MEMORY_STORE';
   private teams: Map<string, Team> = new Map();
   private stages: Map<StageId, StageConfig> = new Map();
   private quizQuestions: Map<string, QuizQuestion> = new Map();

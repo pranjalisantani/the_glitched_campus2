@@ -14,23 +14,54 @@ loadEnvironment();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || 'http://localhost:3000';
+const rawOrigin = process.env.CLIENT_ORIGIN?.trim();
+const normalizedOrigin = rawOrigin ? rawOrigin.replace(/\/+$/, '') : 'http://localhost:3000';
 
 app.use(cors({
-  origin: [CLIENT_ORIGIN, 'http://localhost:3000', 'http://127.0.0.1:3000'],
+  origin: (origin, callback) => {
+    // Allow server-to-server, health checks, curl, mobile/Postman
+    if (!origin) return callback(null, true);
+
+    const allowedOrigins = [
+      normalizedOrigin,
+      'http://localhost:3000',
+      'http://127.0.0.1:3000'
+    ];
+
+    const isAllowed = allowedOrigins.includes(origin) ||
+      (normalizedOrigin.includes('vercel.app') && origin.endsWith('.vercel.app'));
+
+    if (isAllowed) {
+      return callback(null, true);
+    }
+
+    console.warn(`[CORS REJECTED] Origin: "${origin}" does not match CLIENT_ORIGIN: "${normalizedOrigin}"`);
+    callback(null, false);
+  },
   credentials: true
 }));
 
 app.use(express.json({ limit: '10mb' }));
 
 // Health Check
-app.get('/api/health', (req, res) => {
+app.get('/api/health', async (req, res) => {
+  let dbStatus = 'CONNECTED';
+  try {
+    const stages = await store.getAllStages();
+    if (!stages || stages.length === 0) {
+      dbStatus = 'EMPTY_OR_INITIALIZING';
+    }
+  } catch (err: any) {
+    dbStatus = `ERROR: ${err.message}`;
+  }
+
   res.json({
     status: 'ONLINE',
     service: 'THE GLITCHED CAMPUS API GATEWAY',
     version: '1.0.0',
     timestamp: new Date().toISOString(),
-    storeType: 'PERSISTENT_FILE_STORE'
+    storeType: (store as any).storeType || 'PERSISTENT_FILE_STORE',
+    database: dbStatus
   });
 });
 
@@ -89,7 +120,7 @@ if (require.main === module && process.env.NODE_ENV !== 'test') {
       console.log('===========================================================');
       console.log('⚡ THE GLITCHED CAMPUS // BACKEND API SERVER ACTIVE');
       console.log(`📡 URL: http://localhost:${PORT}`);
-      console.log('💾 DATA STORE: In-Memory (All records reset on server restart)');
+      console.log(`[STORAGE ENGINE]: ${(store as any).storeType || 'PERSISTENT_FILE_STORE'}`);
       console.log('===========================================================');
     });
   }).catch(err => {

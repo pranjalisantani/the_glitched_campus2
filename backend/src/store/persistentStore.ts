@@ -34,6 +34,7 @@ import {
 import { IStore, DuplicateQuizSubmissionError } from './memoryStore';
 
 export class PersistentFileStore implements IStore {
+  readonly storeType: string = 'PERSISTENT_FILE_STORE';
   private storageDir: string;
   private teams: Map<string, Team> = new Map();
   private stages: Map<StageId, StageConfig> = new Map();
